@@ -1,4 +1,4 @@
-from utils import get_keycloak, download_data
+from utils import get_keycloak, process_dates, download_data
 from dotenv import load_dotenv
 import argparse
 import os
@@ -12,16 +12,16 @@ if __name__ == '__main__':
         default=['T19HCC']
     )
     parser.add_argument(
-        '-iy', '--initial_year', 
-        help="Initial year to download", 
-        required=False, type=int, 
-        default=2018
+        '-id', '--initial_date', 
+        help="Initial date to download", 
+        required=False, type=str, 
+        default="2018-01-01"
     )
     parser.add_argument(
-        '-ey', '--end_year', 
-        help="End year to download", 
-        required=False, type=int, 
-        default=2023
+        '-ed', '--end_date', 
+        help="End date to download", 
+        required=False, type=str, 
+        default="2023-12-31"
     )
     parser.add_argument(
         '-b', '--bands', 
@@ -53,12 +53,14 @@ if __name__ == '__main__':
     password = os.getenv("COPERNICUS_PASSWORD")
     access_token = get_keycloak(username, password)
     
+    date_ranges = process_dates(args.initial_date, args.end_date)
+
     for _ in range(args.iters):
-        for year in range(args.initial_year, args.end_year+1):
+        for date_range in date_ranges:
             for tile_id in args.tile_ids:
                 download_data(
-                    tile_id, year, 'L2A', 
-                    args.output_directory, 
+                    tile_id, *date_range, 
+                    'L2A', args.output_directory, 
                     access_token, args.bands
                 )
             access_token = get_keycloak(username, password)

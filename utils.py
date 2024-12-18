@@ -1,4 +1,5 @@
 from xml_utils import parse_xml_from_response
+from datetime import datetime
 from tqdm import tqdm
 import requests
 import os
@@ -30,22 +31,61 @@ def get_keycloak(username, password):
 
     return response.json()['access_token']
 
+def process_dates(initial_date, end_date):
+    formatted_start = f'{initial_date}T00:00:00.000Z'
+    formatted_end = f'{end_date}T23:59:59.999Z'
+
+    start = datetime.strptime(initial_date, "%Y-%m-%d")
+    end = datetime.strptime(end_date, "%Y-%m-%d")
+
+    yearly_ranges = []
+    current_start = start
+
+    while current_start <= end:
+        year_end = datetime(current_start.year, 12, 31)
+        current_end = min(year_end, end)
+        yearly_ranges.append((current_start.strftime("%Y-%m-%d"), current_end.strftime("%Y-%m-%d")))
+        current_start = datetime(current_start.year + 1, 1, 1)
+
+    return yearly_ranges
+
+def process_dates(initial_date, end_date):
+    start = datetime.strptime(initial_date, "%Y-%m-%d")
+    end = datetime.strptime(end_date, "%Y-%m-%d")
+
+    yearly_ranges = []
+    current_start = start
+
+    while current_start <= end:
+        year_end = datetime(current_start.year, 12, 31)
+        current_end = min(year_end, end)
+
+        yearly_ranges.append((
+            f'{current_start.strftime("%Y-%m-%d")}T00:00:00.000Z',
+            f'{current_end.strftime("%Y-%m-%d")}T23:59:59.999Z'
+        ))
+
+        current_start = datetime(current_start.year + 1, 1, 1)
+
+    return yearly_ranges
+
 def get_files(session, url):
     response = session.get(url, allow_redirects=True)
     if response.status_code == 200:
-        xmldict = parse_xml_from_response(response)
+        xmldict, namespace = parse_xml_from_response(response)
+        general_info_key = f'{namespace}General_Info'
         files_list = xmldict[
-            '{https://psd-14.sentinel2.eo.esa.int/PSD/User_Product_Level-2A.xsd}General_Info'
+            general_info_key
         ]['Product_Info']['Product_Organisation']['Granule_List']['Granule']['IMAGE_FILE']
         return files_list
     return []
 
-def download_data(tile_id, year, level, output_directory, access_token, bands):
+def download_data(tile_id, initial_date, end_date, level, output_directory, access_token, bands):
     base_url = f"{data_url}/Products?$filter="
     collection_filter = f"Collection/Name eq '{data_collection}' and "
     name_filter = f"contains(Name, '{tile_id}') and contains(Name, '{level}') and "
     status_filter =  "Online eq True and "
-    date_filter = f"ContentDate/Start gt {year}-01-01T00:00:00.000Z and ContentDate/End lt {year}-12-31T23:59:59.999Z"
+    date_filter = f"ContentDate/Start gt {initial_date} and ContentDate/End lt {end_date}"
     extra_options = f"&$top=500&$orderby=ContentDate/Start asc"
     
     query_url = f"{base_url}{collection_filter}{name_filter}{status_filter}{date_filter}{extra_options}"
@@ -56,7 +96,7 @@ def download_data(tile_id, year, level, output_directory, access_token, bands):
     session = requests.Session()
     session.headers.update({'Authorization': f'Bearer {access_token}'})
     
-    for entry in tqdm(data['value'], desc=f"Descargando {year}, {tile_id}"):
+    for entry in tqdm(data['value'], desc=f"Downloading {tile_id} from {initial_date[:10]} to {end_date[:10]}"):
         print()
         product_id = entry['Id']
         product_name = entry['Name']
@@ -64,7 +104,7 @@ def download_data(tile_id, year, level, output_directory, access_token, bands):
         url = f"{data_url}/Products({product_id})/Nodes({product_name})/Nodes(MTD_MSIL2A.xml)/$value"
         response = session.get(url , allow_redirects=False)
         url_location = response.headers['Location']
-        
+
         files_list = get_files(session, url_location)
         files_list = [f'{file}.jp2' for file in files_list if any(band in file for band in bands)]
         for file in files_list:

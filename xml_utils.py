@@ -38,16 +38,10 @@ class XmlDictConfig(dict):
 
 ## --------------------------------------------------------------------------------------------
 
-def write_xml(response):
-    outfile_path ="MTD_MSIL2A.xml"
-    with open(outfile_path, 'wb') as f:
-        f.write(response.content)
-
-def parse_xml():
-    tree = ElementTree.parse('MTD_MSIL2A.xml')
-    root = tree.getroot()
-    xmldict = XmlDictConfig(root)
-    return xmldict
+def get_namespace(root):
+    if root.tag.startswith("{"):
+        return root.tag.split("}")[0] + "}"
+    return ""
 
 def parse_xml_from_response(response):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".xml") as temp_file:
@@ -56,5 +50,6 @@ def parse_xml_from_response(response):
 
     tree = ElementTree.parse(temp_file_path)
     root = tree.getroot()
+    namespace = get_namespace(root)
     xmldict = XmlDictConfig(root)
-    return xmldict
+    return xmldict, namespace
