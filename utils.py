@@ -31,27 +31,9 @@ def get_keycloak(username, password):
 
     return response.json()['access_token']
 
-def process_dates(initial_date, end_date):
-    formatted_start = f'{initial_date}T00:00:00.000Z'
-    formatted_end = f'{end_date}T23:59:59.999Z'
-
+def process_dates(initial_date, last_date):
     start = datetime.strptime(initial_date, "%Y-%m-%d")
-    end = datetime.strptime(end_date, "%Y-%m-%d")
-
-    yearly_ranges = []
-    current_start = start
-
-    while current_start <= end:
-        year_end = datetime(current_start.year, 12, 31)
-        current_end = min(year_end, end)
-        yearly_ranges.append((current_start.strftime("%Y-%m-%d"), current_end.strftime("%Y-%m-%d")))
-        current_start = datetime(current_start.year + 1, 1, 1)
-
-    return yearly_ranges
-
-def process_dates(initial_date, end_date):
-    start = datetime.strptime(initial_date, "%Y-%m-%d")
-    end = datetime.strptime(end_date, "%Y-%m-%d")
+    end = datetime.strptime(last_date, "%Y-%m-%d")
 
     yearly_ranges = []
     current_start = start
@@ -80,12 +62,12 @@ def get_files(session, url):
         return files_list
     return []
 
-def download_data(tile_id, initial_date, end_date, level, output_directory, access_token, bands):
+def download_data(tile_id, initial_date, last_date, level, output_directory, access_token, bands):
     base_url = f"{data_url}/Products?$filter="
     collection_filter = f"Collection/Name eq '{data_collection}' and "
     name_filter = f"contains(Name, '{tile_id}') and contains(Name, '{level}') and "
     status_filter =  "Online eq True and "
-    date_filter = f"ContentDate/Start gt {initial_date} and ContentDate/End lt {end_date}"
+    date_filter = f"ContentDate/Start gt {initial_date} and ContentDate/End lt {last_date}"
     extra_options = f"&$top=500&$orderby=ContentDate/Start asc"
     
     query_url = f"{base_url}{collection_filter}{name_filter}{status_filter}{date_filter}{extra_options}"
@@ -96,7 +78,7 @@ def download_data(tile_id, initial_date, end_date, level, output_directory, acce
     session = requests.Session()
     session.headers.update({'Authorization': f'Bearer {access_token}'})
     
-    for entry in tqdm(data['value'], desc=f"Downloading {tile_id} from {initial_date[:10]} to {end_date[:10]}"):
+    for entry in tqdm(data['value'], desc=f"Downloading {tile_id} from {initial_date[:10]} to {last_date[:10]}"):
         print()
         product_id = entry['Id']
         product_name = entry['Name']

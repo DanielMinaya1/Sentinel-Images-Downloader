@@ -13,12 +13,12 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '-id', '--initial_date', 
-        help="Initial date to download", 
+        help="Start date to download", 
         required=False, type=str, 
         default="2018-01-01"
     )
     parser.add_argument(
-        '-ed', '--end_date', 
+        '-ld', '--last_date', 
         help="End date to download", 
         required=False, type=str, 
         default="2023-12-31"
@@ -53,7 +53,7 @@ if __name__ == '__main__':
     password = os.getenv("COPERNICUS_PASSWORD")
     access_token = get_keycloak(username, password)
     
-    date_ranges = process_dates(args.initial_date, args.end_date)
+    date_ranges = process_dates(args.initial_date, args.last_date)
 
     for _ in range(args.iters):
         for date_range in date_ranges:
