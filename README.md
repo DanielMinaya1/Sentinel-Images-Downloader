@@ -4,7 +4,7 @@ A Python script to download Sentinel-2 images from Copernicus Browser, specifyin
 
 ## Requirements
 1. Copernicus Data Space Account: Register for a free account on the [Copernicus Data Space Ecosystem](https://dataspace.copernicus.eu/).
-2. Credentials Setup: Create a .env file in the project directory with your login 
+2. Credentials Setup: Create a .env file in the project directory with your login.
 ```text 
 COPERNICUS_USERNAME=your_username
 COPERNICUS_PASSWORD=your_password
@@ -19,7 +19,8 @@ python main.py
 This will download Sentinel-2 images using the default configuration:
 * **Tile ID**: T19HCC,
 * **Dates**: 2018-2023,
-* **Bands**: All 10m and 20m resolution bands, plus ```SCL_20m``` and ```TCI_10m```,
+* **Bands**: All 10m and 20m resolution bands, plus ```SCL_20m``` and ```TCI_10m```.
+
 The default parameters are loaded from the file ```s2_default_config.json```.
 
 ### Custom Parameters
@@ -37,15 +38,14 @@ You can customize the download by creating a new file ```config.json``` in the `
 ### Example command
 To download images for tile T19KCP from 2019 to 2022, including specific bands, create:
 ```json
-// config.json
 {
-    "tile_ids": ["T19KCP"],  // List of Sentinel-2 tiles to download
-    "bands": ["B02_10m", "B8A_20m", "TCI_10m"],  // Specific bands
-    "initial_date": "2019-01-01",  // Start date
-    "last_date": "2022-12-31",  // End date
-    "product_level": "L2A",  // L1C or L2A product level
-    "orbit_path": "data/s2_orbits.json",  // Optional orbit path file
-    "output_dir": "/path/to/output"  // Output directory for downloaded images
+    "tile_ids": ["T19KCP"],
+    "bands": ["B02_10m", "B8A_20m", "TCI_10m"],
+    "initial_date": "2019-01-01",
+    "last_date": "2022-12-31", 
+    "product_level": "L2A",
+    "orbit_path": "data/s2_orbits.json",
+    "output_dir": "/path/to/output"
 }
 ```
 and run
