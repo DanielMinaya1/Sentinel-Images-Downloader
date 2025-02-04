@@ -1,0 +1,15 @@
+{
+	"tile_ids": [
+		"T19HCC"
+	],
+	"bands": [
+		"B02_10m", "B03_10m", "B04_10m", "B08_10m", 
+		"B05_20m", "B06_20m", "B07_20m", "B8A_20m",
+		"B11_20m", "B12_20m", "SCL_20m", "TCI_10m"
+	],
+	"initial_date": "2018-01-01",
+	"last_date": "2023-12-31",
+	"product_level": "L2A",
+	"orbit_path": "data/s2_orbits.json",
+	"output_dir": "Sentinel-2"
+}
