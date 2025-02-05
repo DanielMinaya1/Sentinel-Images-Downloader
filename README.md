@@ -91,7 +91,7 @@ python main.py -c config.json
 ### Output Structure
 The downloaded files will be saved as .SAFE folder in the specified ```output_dir``` with the following structure:
 
-#### Sentinel-1 Output Structure
+#### Sentinel-2 Output Structure
 ```text
 output_directory/
 ├── <product_name>.SAFE/
@@ -106,7 +106,7 @@ output_directory/
                     ├── B05_20m.jp2
                     ├── ...
 ```
-#### Sentinel-2 Output Structure
+#### Sentinel-1 Output Structure
 ```text
 output_directory/
 ├── <product_name>.SAFE/
