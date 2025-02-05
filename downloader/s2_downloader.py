@@ -9,16 +9,16 @@ data_url = "https://catalogue.dataspace.copernicus.eu/odata/v1"
 download_url = "https://download.dataspace.copernicus.eu/odata/v1"
 
 class Sentinel2:
-    def __init__(self, username, password, tile_ids, product_level, orbit_path, 
-        initial_date, last_date, bands, output_dir):
+    def __init__(self, username, password, tile_ids, product_level, relative_orbits_path, 
+        initial_date, last_date, band_selection, output_dir):
         """
         Args:
             tile_ids (list[str]): Ids of the tiles to download.
             product_level (str): Level of the product (can be "L1C" or "L2A").
-            orbit_path (str): Path to JSON containing orbit for each tile.
+            relative_orbits_path (str): Path to JSON containing orbit for each tile.
             initial_date (str): Start date to download, in format YYYY-MM-DD.
             last_date (str): End date to download, in format YYYY-MM-DD.
-            bands (list[str]): Bands to download.
+            band_selection (list[str]): Bands to download.
             output_dir (str): Path to save the files
         """
         self.data_collection = 'SENTINEL-2'
@@ -27,15 +27,15 @@ class Sentinel2:
 
         self.tile_ids = tile_ids
         self.product_level = product_level
-        self.bands = bands
+        self.band_selection = band_selection
 
         self.initial_date = initial_date
         self.last_date = last_date
         self.date_ranges = process_dates(initial_date, last_date)
 
         self.output_dir = Path(output_dir)
-        self.orbit_path = Path(orbit_path)
-        self.orbits = load_json(self.orbit_path)
+        self.relative_orbits_path = Path(relative_orbits_path)
+        self.orbits = load_json(self.relative_orbits_path)
 
     def __repr__(self):
         """
@@ -55,7 +55,7 @@ class Sentinel2:
         """
         attributes = [
             f"tile_ids={[(tile_id, self.orbits[tile_id]) for tile_id in self.tile_ids]}",
-            f"bands={self.bands}",
+            f"bands={self.band_selection}",
             f"level={self.product_level}",
             f"range_date={self.initial_date} to {self.last_date}",
             f"output_dir={self.output_dir}"
@@ -134,7 +134,7 @@ class Sentinel2:
             list of str: A filtered list of file paths that match the criteria.
         """
         img_data_files = [file for file in files_list if "IMG_DATA" in file]
-        return [file for file in img_data_files if any(band in file for band in self.bands)]
+        return [file for file in img_data_files if any(band in file for band in self.band_selection)]
 
     def download_product(self, session, SAFE_product):
         """
