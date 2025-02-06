@@ -3,6 +3,9 @@ from tqdm import tqdm
 import requests
 import json
 
+import logs.logger_config
+import logging
+
 def get_keycloak(username, password):
     """
     Obtains an access token from Keycloak for authentication.
@@ -25,6 +28,7 @@ def get_keycloak(username, password):
     }
 
     try:
+        logging.info("Sending request to Keycloak...")
         response = requests.post(
             "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token",
             data=data,
@@ -36,12 +40,20 @@ def get_keycloak(username, password):
         if not token:
             raise Exception("Access token not found in the response.")
 
+        logging.info("Access token retrieved successfully.")
+
     except requests.exceptions.HTTPError as http_err:
-        raise Exception(f"HTTP error occurred: {http_err} - {response.text}")
+        message = f"HTTP error occurred: {http_err} - {response.text}"
+        logging.error(message)
+        raise Exception(message)
     except requests.exceptions.RequestException as req_err:
-        raise Exception(f"Request error occurred: {req_err}")
+        message = f"Request error occurred: {req_err}"
+        logging.error(message)
+        raise Exception(messaage)
     except Exception as e:
-        raise Exception(f"Keycloak token creation failed. Response: {response.text}")
+        message = f"Keycloak token creation failed. Response: {response.text}"
+        logging.error(message)
+        raise Exception(message)
 
     return token
 
@@ -100,14 +112,11 @@ def load_json(file_path, default_type=None):
         if `default_type` is specified.
     """
     if file_path.is_file():
+        logging.info(f"Reading {file_path}...")
         with open(file_path, "r") as file:
             data = json.load(file)
             return defaultdict(default_type, data) if default_type else data
     return defaultdict(default_type) if default_type else {}
-
-def download_file(response, filename):
-    with open(filename, "wb") as file:
-        file.write(response.content)
 
 def download_file(response, file_path, chunk_size=8192):
     """
@@ -122,5 +131,5 @@ def download_file(response, file_path, chunk_size=8192):
         for chunk in response.iter_content(chunk_size=chunk_size):
             if chunk:
                 file.write(chunk)
-    print(f"{file_path} downloaded successfully.")
+    logging.info(f"{file_path} downloaded successfully.")
     response.close()

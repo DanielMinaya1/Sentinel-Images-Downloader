@@ -1,5 +1,8 @@
 from xml.etree import cElementTree as ElementTree
 
+import logs.logger_config
+import logging
+
 ## --------------------------------------------------------------------------------------------
 # https://stackoverflow.com/a/78101353
 
@@ -71,17 +74,6 @@ class XmlDictConfig(dict):
 
 ## --------------------------------------------------------------------------------------------
 
-def parse_manifest(filename):
-    tree = ElementTree.parse(filename)
-    root = tree.getroot()
-    xmldict = XmlDictConfig(root)
-    return xmldict
-
-def get_files(xmldict):
-    files_list = xmldict["dataObjectSection"]["dataObject"]
-    files_list = [file["byteStream"]["fileLocation"]["href"].split("./")[-1] for file in files_list]
-    return files_list
-
 def parse_manifest(file_path):
     """
     Parses an XML manifest file and converts it into a Python dictionary.
@@ -119,11 +111,11 @@ def parse_manifest(file_path):
             }
         }
     """
+    logging.info(f"Parsing {file_path}...")
     tree = ElementTree.parse(file_path)
     root = tree.getroot()
     xmldict = XmlDictConfig(root)
     return xmldict
-
 
 def get_files(xmldict):
     """
