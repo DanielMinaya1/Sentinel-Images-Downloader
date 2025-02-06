@@ -1,66 +1,64 @@
-from utils import get_keycloak, process_dates, download_data
+"""
+Module for downloading Sentinel satellite data.
+
+This script initializes a downloader for Sentinel-1 or Sentinel-2 based on user input
+and loads the corresponding configuration. It retrieves authentication credentials
+from environment variables and starts the download process.
+"""
+
+from downloader.s1_downloader import Sentinel1
+from downloader.s2_downloader import Sentinel2
+from downloader.utils import load_json
 from dotenv import load_dotenv
+from pathlib import Path
 import argparse
 import os
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
+# Mapping of satellite names to their respective downloader classes
+SATELLITE_DOWNLOADERS = {
+    "s1": Sentinel1,
+    "s2": Sentinel2
+}
+
+def main():
+    """
+    Parses command-line arguments, loads the appropriate configuration, 
+    and initializes the downloader.
+
+    Retrieves API credentials from environment variables and starts the 
+    data download for the specified satellite.
+    """
+    parser = argparse.ArgumentParser(description="Sentinel Satellite Data Downloader")  
     parser.add_argument(
-        '-ti', '--tile_ids', 
-        help="Ids of the tiles to download", 
-        required=False, type=str, nargs='+', 
-        default=['T19HCC']
+        "-s", "--satellite",
+        help="Name of the satellite to use as data source",
+        required=False, type=str,
+        default="s2",
+        choices=SATELLITE_DOWNLOADERS.keys()
     )
     parser.add_argument(
-        '-id', '--initial_date', 
-        help="Start date to download", 
-        required=False, type=str, 
-        default="2018-01-01"
-    )
-    parser.add_argument(
-        '-ld', '--last_date', 
-        help="End date to download", 
-        required=False, type=str, 
-        default="2023-12-31"
-    )
-    parser.add_argument(
-        '-b', '--bands', 
-        help="Bands to download",
-        required=False, type=str, nargs='+', 
-        default=[
-            'B02_10m', 'B03_10m', 'B04_10m', 'B08_10m', 
-            'B05_20m', 'B06_20m', 'B07_20m', 'B8A_20m',
-            'B11_20m', 'B12_20m', 'SCL_20m', 'TCI_10m'
-        ]
-    )
-    parser.add_argument(
-        '-od', '--output_directory', 
-        help="Path to save the files", 
-        required=False, type=str, 
-        default="D:/Sentinel-2"
-    )
-    parser.add_argument(
-        '-i', '--iters', 
-        help="Number of iterations", 
-        required=False, type=int,
-        default=1
+        "-c", "--config_name",
+        help="Name of the config.json to customize the download.",
+        required=False, type=str,
+        default=None
     )
 
     args = parser.parse_args()
     load_dotenv()
 
+    # Determine config file name (use default if not provided)
+    config_name = args.config_name or f"{args.satellite}_default_config.json"
+    config_path = Path(f"config/{config_name}")
+    config = load_json(config_path)
+
+    # Retrieve authentication credentials
     username = os.getenv("COPERNICUS_USERNAME")
     password = os.getenv("COPERNICUS_PASSWORD")
-    access_token = get_keycloak(username, password)
-    
-    date_ranges = process_dates(args.initial_date, args.last_date)
 
-    for _ in range(args.iters):
-        for date_range in date_ranges:
-            for tile_id in args.tile_ids:
-                download_data(
-                    tile_id, *date_range, 
-                    'L2A', args.output_directory, 
-                    access_token, args.bands
-                )
-            access_token = get_keycloak(username, password)
+    # Initialize and start the downloader
+    DownloaderClass = SATELLITE_DOWNLOADERS[args.satellite]
+    downloader = DownloaderClass(username, password, **config)
+    downloader.download()
+
+if __name__ == "__main__":
+    main()
