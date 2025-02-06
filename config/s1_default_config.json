@@ -2,7 +2,7 @@
     "footprints_path": "data/s1_footprints.json",
     "orbit_direction": "DESCENDING",
     "initial_date": "2018-01-01",
-    "last_date": "2023-12-31",
+    "last_date": "2018-01-31",
     "product_type": "GRD",
     "polarization_mode": [
         "VV", "VH"
