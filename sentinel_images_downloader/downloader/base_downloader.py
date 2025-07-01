@@ -1,12 +1,12 @@
-from downloader.utils import process_dates, get_keycloak, download_file
-from downloader.xml_utils import parse_manifest, get_files
+from sentinel_images_downloader.downloader.utils import process_dates, get_keycloak, download_file
+from sentinel_images_downloader.downloader.xml_utils import parse_manifest, get_files
 from abc import ABC, abstractmethod
 from pathlib import Path
 from tqdm import tqdm
 import requests
 import time 
 
-import logs.logger_config
+import sentinel_images_downloader.config.logger
 import logging
 
 data_url = "https://catalogue.dataspace.copernicus.eu/odata/v1"

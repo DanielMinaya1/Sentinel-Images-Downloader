@@ -1,9 +1,10 @@
+from collections import defaultdict
 from datetime import datetime, timedelta
 from tqdm import tqdm
 import requests
 import json
 
-import logs.logger_config
+import sentinel_images_downloader.config.logger
 import logging
 
 def get_keycloak(username, password):
@@ -49,7 +50,7 @@ def get_keycloak(username, password):
     except requests.exceptions.RequestException as req_err:
         message = f"Request error occurred: {req_err}"
         logging.error(message)
-        raise Exception(messaage)
+        raise Exception(message)
     except Exception as e:
         message = f"Keycloak token creation failed. Response: {response.text}"
         logging.error(message)

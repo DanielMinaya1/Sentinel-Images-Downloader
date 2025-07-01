@@ -1,8 +1,8 @@
-from downloader.base_downloader import SentinelDownloader
-from downloader.utils import load_json
+from sentinel_images_downloader.downloader.base_downloader import SentinelDownloader
+from sentinel_images_downloader.downloader.utils import load_json
 from pathlib import Path 
 
-import logs.logger_config
+import sentinel_images_downloader.config.logger
 import logging
 
 class Sentinel2(SentinelDownloader):

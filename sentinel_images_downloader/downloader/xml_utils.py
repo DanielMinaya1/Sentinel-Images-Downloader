@@ -1,6 +1,6 @@
 from xml.etree import cElementTree as ElementTree
 
-import logs.logger_config
+import sentinel_images_downloader.config.logger
 import logging
 
 ## --------------------------------------------------------------------------------------------

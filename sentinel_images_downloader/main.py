@@ -6,9 +6,9 @@ and loads the corresponding configuration. It retrieves authentication credentia
 from environment variables and starts the download process.
 """
 
-from downloader.s1_downloader import Sentinel1
-from downloader.s2_downloader import Sentinel2
-from downloader.utils import load_json
+from sentinel_images_downloader.downloader.s1_downloader import Sentinel1
+from sentinel_images_downloader.downloader.s2_downloader import Sentinel2
+from sentinel_images_downloader.downloader.utils import load_json
 from dotenv import load_dotenv
 from pathlib import Path
 import argparse
