@@ -10,11 +10,30 @@ COPERNICUS_USERNAME=your_username
 COPERNICUS_PASSWORD=your_password
 ```
 
+## Installation
+**1. Clone the Repository**
+```bash
+git clone https://github.com/DanielMinaya1/sentinel-images-downloader.git
+cd sentinel-images-downloader
+```
+**2. Create a Virtual Environment**
+```bash
+python -m venv venv
+venv\scripts\activate
+```
+
+**3. Install Dependencies**
+
+Install all the necessary dependencies using:
+```bash
+pip install -e .
+```
+
 ## Usage
 ### Basic Usage
 Run the script with the default settings:
 ```bat 
-python main.py
+python -m sentinel_images_downloader.main
 ```
 This will download **Sentinel-2** images using the default configuration:
 * **Tile ID**: T19HCC
@@ -25,7 +44,7 @@ The default parameters are loaded from the file ```s2_default_config.json```.
 
 To download **Sentinel-1** images instead, run:
 ```bat 
-python main.py -s s1
+python -m sentinel_images_downloader.main -s s1
 ```
 
 This will use the default Sentinel-1 configuration:
@@ -38,7 +57,7 @@ This will use the default Sentinel-1 configuration:
 The default parameters are loaded from the file ```s1_default_config.json```.
 
 ### Custom Parameters
-You can customize the download by creating a new configuration file in the config directory. The file should follow the format below, depending on whether you're downloading Sentinel-1 or Sentinel-2 data.
+You can customize the download by creating a new configuration file in the config directory. The file should follow the format below, depending on whether you are downloading Sentinel-1 or Sentinel-2 data.
 
 #### Sentinel-1 Configuration
 | Entry | Description | Default Value |
@@ -64,11 +83,11 @@ You can customize the download by creating a new configuration file in the confi
 
 To use a custom configuration, specify the file name when running the script:
 ```bat 
-python main.py -s s1 -c my_custom_s1_config.json
+python -m sentinel_images_downloader.main -s s1 -c my_custom_s1_config.json
 ```
 or 
 ```bat 
-python main.py -s s2 -c my_custom_s2_config.json
+python -m sentinel_images_downloader.main -s s2 -c my_custom_s2_config.json
 ```
 ### Example Command
 To download Sentinel-2 images for tile T19KCP from 2019 to 2022, including specific bands, create:
@@ -85,7 +104,7 @@ To download Sentinel-2 images for tile T19KCP from 2019 to 2022, including speci
 ```
 and run
 ```bat 
-python main.py -c config.json
+python -m sentinel_images_downloader.main -c config.json
 ```
 
 ### Output Structure
