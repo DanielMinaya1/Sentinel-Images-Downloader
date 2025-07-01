@@ -3,9 +3,9 @@ from datetime import datetime, timedelta
 from tqdm import tqdm
 import requests
 import json
-
-import sentinel_images_downloader.config.logger
 import logging
+
+logger = logging.getLogger(__name__)
 
 def get_keycloak(username, password):
     """
@@ -29,7 +29,7 @@ def get_keycloak(username, password):
     }
 
     try:
-        logging.info("Sending request to Keycloak...")
+        logger.info("Sending request to Keycloak...")
         response = requests.post(
             "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token",
             data=data,
@@ -41,19 +41,19 @@ def get_keycloak(username, password):
         if not token:
             raise Exception("Access token not found in the response.")
 
-        logging.info("Access token retrieved successfully.")
+        logger.info("Access token retrieved successfully.")
 
     except requests.exceptions.HTTPError as http_err:
         message = f"HTTP error occurred: {http_err} - {response.text}"
-        logging.error(message)
+        logger.error(message)
         raise Exception(message)
     except requests.exceptions.RequestException as req_err:
         message = f"Request error occurred: {req_err}"
-        logging.error(message)
+        logger.error(message)
         raise Exception(message)
     except Exception as e:
         message = f"Keycloak token creation failed. Response: {response.text}"
-        logging.error(message)
+        logger.error(message)
         raise Exception(message)
 
     return token
@@ -113,7 +113,7 @@ def load_json(file_path, default_type=None):
         if `default_type` is specified.
     """
     if file_path.is_file():
-        logging.info(f"Reading {file_path}...")
+        logger.info(f"Reading {file_path}...")
         with open(file_path, "r") as file:
             data = json.load(file)
             return defaultdict(default_type, data) if default_type else data
@@ -132,5 +132,5 @@ def download_file(response, file_path, chunk_size=8192):
         for chunk in response.iter_content(chunk_size=chunk_size):
             if chunk:
                 file.write(chunk)
-    logging.info(f"{file_path} downloaded successfully.")
+    logger.info(f"{file_path} downloaded successfully.")
     response.close()

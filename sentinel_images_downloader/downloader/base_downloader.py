@@ -5,10 +5,9 @@ from pathlib import Path
 from tqdm import tqdm
 import requests
 import time 
-
-import sentinel_images_downloader.config.logger
 import logging
 
+logger = logging.getLogger(__name__)
 data_url = "https://catalogue.dataspace.copernicus.eu/odata/v1"
 download_url = "https://download.dataspace.copernicus.eu/odata/v1"
 
@@ -65,7 +64,7 @@ class SentinelDownloader(ABC):
         """
         product_path = self.output_dir / product_name
         product_path.mkdir(parents=True, exist_ok=True)
-        logging.info(f"Created output directory for the files: {product_path}")
+        logger.info(f"Created output directory for the files: {product_path}")
         return product_path
 
     @abstractmethod
@@ -113,13 +112,13 @@ class SentinelDownloader(ABC):
 
         xmldict = parse_manifest(manifest_path)
         files_list = self.filter_images(get_files(xmldict))
-        logging.info(f"Found {len(files_list)} files to download")
+        logger.info(f"Found {len(files_list)} files to download")
 
         for file in files_list:
             file_path = product_path / file
             file_path.parent.mkdir(parents=True, exist_ok=True)
             if file_path.is_file():
-                logging.info(f"{file_path} already exists. Skipping...")
+                logger.info(f"{file_path} already exists. Skipping...")
                 continue
 
             nodes_str = "/".join([f"Nodes({node})" for node in file.split("/")])
@@ -148,7 +147,7 @@ class SentinelDownloader(ABC):
             - Introduces a **10-second delay** (`time.sleep(10)`) between iterations to avoid rate limits.
         """
         for initial_date, last_date in self.date_ranges:
-            logging.info(f"Downloading from {initial_date} to {last_date}")
+            logger.info(f"Downloading from {initial_date} to {last_date}")
             query = self.get_query(tile_id, initial_date, last_date)
             response = requests.get(query)
             data = response.json()

@@ -1,9 +1,9 @@
 from sentinel_images_downloader.downloader.base_downloader import SentinelDownloader
 from sentinel_images_downloader.downloader.utils import load_json
 from pathlib import Path 
-
-import sentinel_images_downloader.config.logger
 import logging
+
+logger = logging.getLogger(__name__)
 
 class Sentinel2(SentinelDownloader):
     def __init__(self, username, password, tile_ids, product_level, relative_orbits_path, 
@@ -104,6 +104,6 @@ class Sentinel2(SentinelDownloader):
             - The `self.download_tile()` method is responsible for querying and downloading products.
             - This function acts as the main entry point for triggering the download process.
         """
-        logging.info(self)
+        logger.info(self)
         for tile_id in self.tile_ids:
             self.download_tile(tile_id)

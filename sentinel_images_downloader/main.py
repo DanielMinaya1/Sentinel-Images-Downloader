@@ -9,6 +9,8 @@ from environment variables and starts the download process.
 from sentinel_images_downloader.downloader.s1_downloader import Sentinel1
 from sentinel_images_downloader.downloader.s2_downloader import Sentinel2
 from sentinel_images_downloader.downloader.utils import load_json
+from sentinel_images_downloader.config.path import LOGS_DIR
+from datetime import datetime
 from dotenv import load_dotenv
 from pathlib import Path
 import argparse
@@ -20,7 +22,7 @@ SATELLITE_DOWNLOADERS = {
     "s2": Sentinel2
 }
 
-def main():
+def main(logger):
     """
     Parses command-line arguments, loads the appropriate configuration, 
     and initializes the downloader.
@@ -61,4 +63,8 @@ def main():
     downloader.download()
 
 if __name__ == "__main__":
-    main()
+    from sentinel_images_downloader.config.logger import setup_logger
+    today = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+    log_path = LOGS_DIR / f"{today}.log"
+    logger = setup_logger(file_name=log_path)
+    main(logger)
