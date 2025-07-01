@@ -1,6 +1,7 @@
 # Specific folders
 Sentinel-1/*
 Sentinel-2/*
+logs/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
