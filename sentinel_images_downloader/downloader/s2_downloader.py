@@ -1,6 +1,6 @@
 import rasterio
 from sentinel_images_downloader.downloader.base_downloader import SentinelDownloader
-from sentinel_images_downloader.utils.io_utils import load_json
+from sentinel_images_downloader.utils.io_utils import load_json, resolve_config_path
 from pathlib import Path 
 import logging
 
@@ -23,7 +23,7 @@ class Sentinel2(SentinelDownloader):
         self.product_level = product_level
         self.band_selection = band_selection
 
-        self.relative_orbits_path = Path(relative_orbits_path)
+        self.relative_orbits_path = resolve_config_path(relative_orbits_path)
         self.orbits = load_json(self.relative_orbits_path)
 
     def __repr__(self):

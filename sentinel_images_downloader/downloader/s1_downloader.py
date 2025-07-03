@@ -1,5 +1,5 @@
 from sentinel_images_downloader.downloader.base_downloader import SentinelDownloader
-from sentinel_images_downloader.utils.io_utils import load_json
+from sentinel_images_downloader.utils.io_utils import load_json, resolve_config_path
 from pathlib import Path 
 import rasterio
 import logging
@@ -25,7 +25,7 @@ class Sentinel1(SentinelDownloader):
         self.product_type = product_type
         self.polarization_mode = polarization_mode
 
-        self.footprints_path = Path(footprints_path)
+        self.footprints_path = resolve_config_path(footprints_path)
         self.footprints = load_json(self.footprints_path)
 
     def __repr__(self):

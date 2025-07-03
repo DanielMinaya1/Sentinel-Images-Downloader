@@ -1,4 +1,5 @@
 from collections import defaultdict
+from pathlib import Path
 import json
 import logging
 
@@ -35,6 +36,19 @@ def load_json(file_path, default_type=None):
     else:
         logger.warning(f"JSON file not found at {file_path}. Returning empty.") 
         return defaultdict(default_type) if default_type else {}
+
+def resolve_config_path(config_name_or_path, default_subdir="examples"):
+    path = Path(config_name_or_path)
+    if path.is_absolute():
+        return path
+    elif Path(default_subdir, config_name_or_path).exists():
+        return Path(default_subdir, config_name_or_path)
+    elif path.exists():
+        return path
+    else:
+        message = f"Config file not found: {config_name_or_path}"
+        logger.error(message, exc_info=True)
+        raise FileNotFoundError(message)
 
 def download_file(response, file_path, chunk_size=8192):
     """
