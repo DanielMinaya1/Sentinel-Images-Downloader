@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 class Sentinel2(SentinelDownloader):
     def __init__(self, username, password, tile_ids, product_level, relative_orbits_path, 
-        initial_date, last_date, band_selection, output_dir):
+        initial_date, last_date, band_selection, output_dir, max_retries):
         """
         Args:
             tile_ids (list[str]): Ids of the tiles to download.
@@ -16,7 +16,7 @@ class Sentinel2(SentinelDownloader):
             relative_orbits_path (str): Path to JSON containing orbit for each tile.
             band_selection (list[str]): Bands to download.
         """
-        super().__init__(username, password, initial_date, last_date, output_dir)
+        super().__init__(username, password, initial_date, last_date, output_dir, max_retries)
         self.data_collection = 'SENTINEL-2'
 
         self.tile_ids = tile_ids

@@ -8,7 +8,9 @@ logger = logging.getLogger(__name__)
 
 class Sentinel1(SentinelDownloader):
     def __init__(self, username, password, footprints_path, orbit_direction,
-        product_type, polarization_mode, initial_date, last_date, output_dir):   
+        product_type, polarization_mode, initial_date, last_date, output_dir,
+        max_retries,
+        ):   
         """
         Args:
             footprints_path (str): Path to a JSON file containing AOI footprints.
@@ -16,7 +18,7 @@ class Sentinel1(SentinelDownloader):
             product_type (str): Sentinel-1 product type (e.g., "GRDH", "SLC").
             polarization_mode (list[str]): Polarization modes (e.g., ["VV", "VH"]).
         """   
-        super().__init__(username, password, initial_date, last_date, output_dir)
+        super().__init__(username, password, initial_date, last_date, output_dir, max_retries)
         self.data_collection = 'SENTINEL-1'
 
         self.orbit_direction = orbit_direction
