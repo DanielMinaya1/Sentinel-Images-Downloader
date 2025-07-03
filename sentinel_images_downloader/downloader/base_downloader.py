@@ -1,38 +1,41 @@
-from downloader.utils import process_dates, get_keycloak, download_file
-from downloader.xml_utils import parse_manifest, get_files
+from sentinel_images_downloader.config.endpoints import DATA_URL, DOWNLOAD_URL
+from sentinel_images_downloader.utils.io_utils import download_file
+from sentinel_images_downloader.utils.auth import get_keycloak
+from sentinel_images_downloader.utils.dates import process_dates
+from sentinel_images_downloader.utils.xml_utils import parse_manifest, get_files
 from abc import ABC, abstractmethod
 from pathlib import Path
 from tqdm import tqdm
 import requests
 import time 
-
-import logs.logger_config
 import logging
 
-data_url = "https://catalogue.dataspace.copernicus.eu/odata/v1"
-download_url = "https://download.dataspace.copernicus.eu/odata/v1"
+logger = logging.getLogger(__name__)
 
 class SentinelDownloader(ABC):
-    def __init__(self, username, password, initial_date, last_date, output_dir):
+    def __init__(self, username, password, initial_date, last_date, output_dir, max_retries):
         """
         Args:
             username (str): Copernicus API username.
             password (str): Copernicus API password.
             initial_date (str): Start date to download, in format YYYY-MM-DD.
             last_date (str): End date to download, in format YYYY-MM-DD.
-            output_dir (str): Path to save the files
+            output_dir (str): Path to save the files.
+            max_retries (int): Number of retries if corrupt file.
         """
         self.username = username
         self.password = password
 
-        self.data_url = data_url
-        self.download_url = download_url
+        self.data_url = DATA_URL
+        self.download_url = DOWNLOAD_URL
     
         self.initial_date = initial_date
         self.last_date = last_date
         self.date_ranges = process_dates(initial_date, last_date)
 
         self.output_dir = Path(output_dir)
+
+        self.max_retries = max_retries
 
     def init_session(self):
         """
@@ -65,7 +68,7 @@ class SentinelDownloader(ABC):
         """
         product_path = self.output_dir / product_name
         product_path.mkdir(parents=True, exist_ok=True)
-        logging.info(f"Created output directory for the files: {product_path}")
+        logger.info(f"Created output directory for the files: {product_path}")
         return product_path
 
     @abstractmethod
@@ -113,19 +116,34 @@ class SentinelDownloader(ABC):
 
         xmldict = parse_manifest(manifest_path)
         files_list = self.filter_images(get_files(xmldict))
-        logging.info(f"Found {len(files_list)} files to download")
+        logger.info(f"Found {len(files_list)} files to download")
 
         for file in files_list:
             file_path = product_path / file
             file_path.parent.mkdir(parents=True, exist_ok=True)
             if file_path.is_file():
-                logging.info(f"{file_path} already exists. Skipping...")
+                logger.info(f"{file_path} already exists. Skipping...")
                 continue
 
             nodes_str = "/".join([f"Nodes({node})" for node in file.split("/")])
             file_url = f"{product_base_url}/{nodes_str}/$value"
-            response = session.get(file_url, allow_redirects=False)
-            download_file(response, file_path)
+
+            for attempt in range(1, self.max_retries+1):
+                try:
+                    response = session.get(file_url, allow_redirects=False)
+                    download_file(response, file_path)
+                    self.validate_download(file_path)
+                    break
+                
+                except Exception as e:
+                    logger.warning(f"Attempt {attempt} failed for {file_path}: {e}")
+                    file_path.unlink(missing_ok=True)
+
+                    if attempt == self.max_retries:
+                        logger.error(f"Max retries reached for {file_path}. Giving up.")
+                        raise
+                    else:
+                        logger.info(f"Retrying download for {file_path}...")
 
     def download_tile(self, tile_id):
         """
@@ -148,7 +166,7 @@ class SentinelDownloader(ABC):
             - Introduces a **10-second delay** (`time.sleep(10)`) between iterations to avoid rate limits.
         """
         for initial_date, last_date in self.date_ranges:
-            logging.info(f"Downloading from {initial_date} to {last_date}")
+            logger.info(f"Downloading from {initial_date} to {last_date}")
             query = self.get_query(tile_id, initial_date, last_date)
             response = requests.get(query)
             data = response.json()
@@ -163,5 +181,11 @@ class SentinelDownloader(ABC):
     
     @abstractmethod
     def download(self):
+        """Abstract method to be implemented by subclasses."""
+        pass
+
+
+    @abstractmethod
+    def validate_download(self, file_path):
         """Abstract method to be implemented by subclasses."""
         pass

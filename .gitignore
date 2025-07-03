@@ -1,6 +1,7 @@
 # Specific folders
 Sentinel-1/*
 Sentinel-2/*
+logs/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -13,5 +14,6 @@ __pycache__/
 env/
 venv/
 
-# Logs
+# Other files
 *.log
+*.egg-info

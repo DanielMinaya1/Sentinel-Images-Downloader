@@ -7,5 +7,6 @@
     "polarization_mode": [
         "VV", "VH"
     ],
-    "output_dir": "Sentinel-1"
+    "output_dir": "Sentinel-1",
+    "max_retries": 3
 }

@@ -1,7 +1,7 @@
 from xml.etree import cElementTree as ElementTree
-
-import logs.logger_config
 import logging
+
+logger = logging.getLogger(__name__)
 
 ## --------------------------------------------------------------------------------------------
 # https://stackoverflow.com/a/78101353
@@ -111,7 +111,7 @@ def parse_manifest(file_path):
             }
         }
     """
-    logging.info(f"Parsing {file_path}...")
+    logger.info(f"Parsing {file_path}...")
     tree = ElementTree.parse(file_path)
     root = tree.getroot()
     xmldict = XmlDictConfig(root)

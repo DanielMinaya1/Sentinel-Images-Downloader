@@ -1,13 +1,16 @@
-from downloader.base_downloader import SentinelDownloader
-from downloader.utils import load_json
+from sentinel_images_downloader.downloader.base_downloader import SentinelDownloader
+from sentinel_images_downloader.utils.io_utils import load_json, resolve_config_path
 from pathlib import Path 
-
-import logs.logger_config
+import rasterio
 import logging
+
+logger = logging.getLogger(__name__)
 
 class Sentinel1(SentinelDownloader):
     def __init__(self, username, password, footprints_path, orbit_direction,
-        product_type, polarization_mode, initial_date, last_date, output_dir):   
+        product_type, polarization_mode, initial_date, last_date, output_dir,
+        max_retries,
+        ):   
         """
         Args:
             footprints_path (str): Path to a JSON file containing AOI footprints.
@@ -15,14 +18,14 @@ class Sentinel1(SentinelDownloader):
             product_type (str): Sentinel-1 product type (e.g., "GRDH", "SLC").
             polarization_mode (list[str]): Polarization modes (e.g., ["VV", "VH"]).
         """   
-        super().__init__(username, password, initial_date, last_date, output_dir)
+        super().__init__(username, password, initial_date, last_date, output_dir, max_retries)
         self.data_collection = 'SENTINEL-1'
 
         self.orbit_direction = orbit_direction
         self.product_type = product_type
         self.polarization_mode = polarization_mode
 
-        self.footprints_path = Path(footprints_path)
+        self.footprints_path = resolve_config_path(footprints_path)
         self.footprints = load_json(self.footprints_path)
 
     def __repr__(self):
@@ -109,6 +112,23 @@ class Sentinel1(SentinelDownloader):
             - The `self.download_tile()` method is responsible for querying and downloading products.
             - This function acts as the main entry point for triggering the download process.
         """
-        logging.info(self)
+        logger.info(self)
         for tile_id in self.footprints:
             self.download_tile(tile_id)
+
+    def validate_download(self, file_path):
+        """
+        Validates the downloaded file.
+
+        Raises:
+            Exception: If the file is corrupt or unreadable.
+        """
+        if file_path.suffix.lower() not in {".tif", ".tiff"}:
+            return
+        try:
+            with rasterio.open(file_path) as src:
+                src.meta
+        except Exception as e:
+            message = f"Invalid TIFF file: {e}"
+            logger.error(message)
+            raise ValueError(message)

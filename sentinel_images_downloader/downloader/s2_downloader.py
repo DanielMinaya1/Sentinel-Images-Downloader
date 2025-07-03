@@ -1,13 +1,14 @@
-from downloader.base_downloader import SentinelDownloader
-from downloader.utils import load_json
+import rasterio
+from sentinel_images_downloader.downloader.base_downloader import SentinelDownloader
+from sentinel_images_downloader.utils.io_utils import load_json, resolve_config_path
 from pathlib import Path 
-
-import logs.logger_config
 import logging
+
+logger = logging.getLogger(__name__)
 
 class Sentinel2(SentinelDownloader):
     def __init__(self, username, password, tile_ids, product_level, relative_orbits_path, 
-        initial_date, last_date, band_selection, output_dir):
+        initial_date, last_date, band_selection, output_dir, max_retries):
         """
         Args:
             tile_ids (list[str]): Ids of the tiles to download.
@@ -15,14 +16,14 @@ class Sentinel2(SentinelDownloader):
             relative_orbits_path (str): Path to JSON containing orbit for each tile.
             band_selection (list[str]): Bands to download.
         """
-        super().__init__(username, password, initial_date, last_date, output_dir)
+        super().__init__(username, password, initial_date, last_date, output_dir, max_retries)
         self.data_collection = 'SENTINEL-2'
 
         self.tile_ids = tile_ids
         self.product_level = product_level
         self.band_selection = band_selection
 
-        self.relative_orbits_path = Path(relative_orbits_path)
+        self.relative_orbits_path = resolve_config_path(relative_orbits_path)
         self.orbits = load_json(self.relative_orbits_path)
 
     def __repr__(self):
@@ -104,6 +105,24 @@ class Sentinel2(SentinelDownloader):
             - The `self.download_tile()` method is responsible for querying and downloading products.
             - This function acts as the main entry point for triggering the download process.
         """
-        logging.info(self)
+        logger.info(self)
         for tile_id in self.tile_ids:
             self.download_tile(tile_id)
+
+    def validate_download(self, file_path):
+        """
+        Validates the downloaded file.
+
+        Raises:
+            Exception: If the file is corrupt or unreadable.
+        """
+        if file_path.suffix.lower() != ".jp2":
+            return
+        try:
+            with rasterio.open(file_path) as src:
+                src.meta
+
+        except Exception as e:
+            message = f"Invalid JP2 file: {e}"
+            logger.error(message, exc_info=True)
+            raise ValueError(message)
