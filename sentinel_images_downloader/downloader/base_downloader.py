@@ -1,3 +1,4 @@
+from sentinel_images_downloader.config.endpoints import DATA_URL, DOWNLOAD_URL
 from sentinel_images_downloader.utils.utils import process_dates, get_keycloak, download_file
 from sentinel_images_downloader.utils.xml_utils import parse_manifest, get_files
 from abc import ABC, abstractmethod
@@ -8,8 +9,6 @@ import time
 import logging
 
 logger = logging.getLogger(__name__)
-data_url = "https://catalogue.dataspace.copernicus.eu/odata/v1"
-download_url = "https://download.dataspace.copernicus.eu/odata/v1"
 
 class SentinelDownloader(ABC):
     def __init__(self, username, password, initial_date, last_date, output_dir):
@@ -24,8 +23,8 @@ class SentinelDownloader(ABC):
         self.username = username
         self.password = password
 
-        self.data_url = data_url
-        self.download_url = download_url
+        self.data_url = DATA_URL
+        self.download_url = DOWNLOAD_URL
     
         self.initial_date = initial_date
         self.last_date = last_date

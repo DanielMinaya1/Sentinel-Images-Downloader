@@ -1,3 +1,4 @@
+from sentinel_images_downloader.config.endpoints import LOGIN_URL
 from collections import defaultdict
 from datetime import datetime, timedelta
 from tqdm import tqdm
@@ -31,7 +32,7 @@ def get_keycloak(username, password):
     try:
         logger.info("Sending request to Keycloak...")
         response = requests.post(
-            "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token",
+            LOGIN_URL,
             data=data,
             allow_redirects=True
         )
