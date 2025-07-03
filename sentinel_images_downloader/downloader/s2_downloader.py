@@ -1,3 +1,4 @@
+import rasterio
 from sentinel_images_downloader.downloader.base_downloader import SentinelDownloader
 from sentinel_images_downloader.utils.io_utils import load_json
 from pathlib import Path 
@@ -107,3 +108,21 @@ class Sentinel2(SentinelDownloader):
         logger.info(self)
         for tile_id in self.tile_ids:
             self.download_tile(tile_id)
+
+    def validate_download(self, file_path):
+        """
+        Validates the downloaded file.
+
+        Raises:
+            Exception: If the file is corrupt or unreadable.
+        """
+        if file_path.suffix.lower() != ".jp2":
+            return
+        try:
+            with rasterio.open(file_path) as src:
+                src.meta
+
+        except Exception as e:
+            message = f"Invalid JP2 file: {e}"
+            logger.error(message, exc_info=True)
+            raise ValueError(message)

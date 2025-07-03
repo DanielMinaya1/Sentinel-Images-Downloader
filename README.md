@@ -69,6 +69,7 @@ You can customize the download by creating a new configuration file in the confi
 | ```polarization_mode``` | List of polarization modes to download (e.g., "VV", "VH", "HH", "HV") | ```L2A``` |
 | ```orbit_direction``` | Orbit direction of Sentinel-1 (e.g., "ASCENDING", "DESCENDING") | ```DESCENDING``` |
 | ```output_dir``` | Directory where the files will be saved | Current working directory |
+| ```max_retries``` | Number of retries to download a file | ```3``` |
 
 #### Sentinel-2 Configuration
 | Entry | Description | Default Value |
@@ -80,6 +81,7 @@ You can customize the download by creating a new configuration file in the confi
 | ```product_level``` | Product level of S2 (can be "L1C" or "L2A") | ```L2A``` |
 | ```relative_orbits_path``` | Path to a JSON file containing orbit information for the specified tiles | ```data/s2_relative_orbits.json``` |
 | ```output_dir``` | Directory where the files will be saved | Current working directory |
+| ```max_retries``` | Number of retries to download a file | ```3``` |
 
 To use a custom configuration, specify the file name when running the script:
 ```bat 
@@ -99,7 +101,8 @@ To download Sentinel-2 images for tile T19KCP from 2019 to 2022, including speci
     "last_date": "2022-12-31", 
     "product_level": "L2A",
     "relative_orbits_path": "data/s2_orbits.json",
-    "output_dir": "/path/to/output"
+    "output_dir": "/path/to/output",
+    "max_retries": 3
 }
 ```
 and run

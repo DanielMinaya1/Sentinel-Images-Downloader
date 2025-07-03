@@ -13,14 +13,15 @@ import logging
 logger = logging.getLogger(__name__)
 
 class SentinelDownloader(ABC):
-    def __init__(self, username, password, initial_date, last_date, output_dir):
+    def __init__(self, username, password, initial_date, last_date, output_dir, max_retries):
         """
         Args:
             username (str): Copernicus API username.
             password (str): Copernicus API password.
             initial_date (str): Start date to download, in format YYYY-MM-DD.
             last_date (str): End date to download, in format YYYY-MM-DD.
-            output_dir (str): Path to save the files
+            output_dir (str): Path to save the files.
+            max_retries (int): Number of retries if corrupt file.
         """
         self.username = username
         self.password = password
@@ -33,6 +34,8 @@ class SentinelDownloader(ABC):
         self.date_ranges = process_dates(initial_date, last_date)
 
         self.output_dir = Path(output_dir)
+
+        self.max_retries = max_retries
 
     def init_session(self):
         """
@@ -124,8 +127,23 @@ class SentinelDownloader(ABC):
 
             nodes_str = "/".join([f"Nodes({node})" for node in file.split("/")])
             file_url = f"{product_base_url}/{nodes_str}/$value"
-            response = session.get(file_url, allow_redirects=False)
-            download_file(response, file_path)
+
+            for attempt in range(1, self.max_retries+1):
+                try:
+                    response = session.get(file_url, allow_redirects=False)
+                    download_file(response, file_path)
+                    self.validate_download(file_path)
+                    break
+                
+                except Exception as e:
+                    logger.warning(f"Attempt {attempt} failed for {file_path}: {e}")
+                    file_path.unlink(missing_ok=True)
+
+                    if attempt == self.max_retries:
+                        logger.error(f"Max retries reached for {file_path}. Giving up.")
+                        raise
+                    else:
+                        logger.info(f"Retrying download for {file_path}...")
 
     def download_tile(self, tile_id):
         """
@@ -163,5 +181,11 @@ class SentinelDownloader(ABC):
     
     @abstractmethod
     def download(self):
+        """Abstract method to be implemented by subclasses."""
+        pass
+
+
+    @abstractmethod
+    def validate_download(self, file_path):
         """Abstract method to be implemented by subclasses."""
         pass
