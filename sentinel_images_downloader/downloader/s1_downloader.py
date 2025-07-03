@@ -1,5 +1,5 @@
 from sentinel_images_downloader.downloader.base_downloader import SentinelDownloader
-from sentinel_images_downloader.utils.utils import load_json
+from sentinel_images_downloader.utils.io_utils import load_json
 from pathlib import Path 
 import logging
 

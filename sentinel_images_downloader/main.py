@@ -8,7 +8,7 @@ from environment variables and starts the download process.
 
 from sentinel_images_downloader.downloader.s1_downloader import Sentinel1
 from sentinel_images_downloader.downloader.s2_downloader import Sentinel2
-from sentinel_images_downloader.utils.utils import load_json
+from sentinel_images_downloader.utils.io_utils import load_json
 from sentinel_images_downloader.config.path import LOGS_DIR
 from datetime import datetime
 from dotenv import load_dotenv

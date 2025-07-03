@@ -1,5 +1,7 @@
 from sentinel_images_downloader.config.endpoints import DATA_URL, DOWNLOAD_URL
-from sentinel_images_downloader.utils.utils import process_dates, get_keycloak, download_file
+from sentinel_images_downloader.utils.io_utils import download_file
+from sentinel_images_downloader.utils.auth import get_keycloak
+from sentinel_images_downloader.utils.dates import process_dates
 from sentinel_images_downloader.utils.xml_utils import parse_manifest, get_files
 from abc import ABC, abstractmethod
 from pathlib import Path
