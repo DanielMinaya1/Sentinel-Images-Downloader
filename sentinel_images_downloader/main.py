@@ -16,13 +16,18 @@ from pathlib import Path
 import argparse
 import os
 
+from sentinel_images_downloader.config.logger import setup_logger
+today = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+log_path = LOGS_DIR / f"{today}.log"
+logger = setup_logger(file_name=log_path)
+
 # Mapping of satellite names to their respective downloader classes
 SATELLITE_DOWNLOADERS = {
     "s1": Sentinel1,
     "s2": Sentinel2
 }
 
-def main(logger):
+def main():
     """
     Parses command-line arguments, loads the appropriate configuration, 
     and initializes the downloader.
@@ -61,10 +66,7 @@ def main(logger):
     DownloaderClass = SATELLITE_DOWNLOADERS[args.satellite]
     downloader = DownloaderClass(username, password, **config)
     downloader.download()
+    logger.info("Downloading complete...")
 
 if __name__ == "__main__":
-    from sentinel_images_downloader.config.logger import setup_logger
-    today = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    log_path = LOGS_DIR / f"{today}.log"
-    logger = setup_logger(file_name=log_path)
-    main(logger)
+    main()
