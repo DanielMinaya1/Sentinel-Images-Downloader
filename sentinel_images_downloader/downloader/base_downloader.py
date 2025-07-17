@@ -1,5 +1,5 @@
 from sentinel_images_downloader.config.endpoints import DATA_URL, DOWNLOAD_URL
-from sentinel_images_downloader.utils.io_utils import download_file
+from sentinel_images_downloader.utils.io_utils import download_file, process_path
 from sentinel_images_downloader.utils.auth import get_keycloak
 from sentinel_images_downloader.utils.dates import process_dates
 from sentinel_images_downloader.utils.xml_utils import parse_manifest, get_files
@@ -120,6 +120,7 @@ class SentinelDownloader(ABC):
 
         for file in files_list:
             file_path = product_path / file
+            file_path = process_path(file_path)
             file_path.parent.mkdir(parents=True, exist_ok=True)
             if file_path.is_file():
                 logger.info(f"{file_path} already exists. Skipping...")

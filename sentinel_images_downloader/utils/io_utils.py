@@ -1,9 +1,15 @@
 from collections import defaultdict
 from pathlib import Path
+import platform
 import json
 import logging
 
 logger = logging.getLogger(__name__)
+
+def process_path(file_path):
+    if platform.system() == "Windows":
+        file_path = Path(f"\\\\?\\{file_path}")
+    return file_path
 
 def load_json(file_path, default_type=None):
     """
