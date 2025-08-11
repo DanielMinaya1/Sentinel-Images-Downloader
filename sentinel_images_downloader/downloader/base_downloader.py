@@ -33,7 +33,7 @@ class SentinelDownloader(ABC):
         self.last_date = last_date
         self.date_ranges = process_dates(initial_date, last_date)
 
-        self.output_dir = Path(output_dir)
+        self.output_dir = Path(output_dir).resolve()
 
         self.max_retries = max_retries
 

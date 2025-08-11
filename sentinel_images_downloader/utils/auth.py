@@ -1,16 +1,9 @@
 from sentinel_images_downloader.config.endpoints import LOGIN_URL
-from tenacity import retry, stop_after_attempt, wait_fixed, retry_if_exception_type
 import requests
 import logging
 
 logger = logging.getLogger(__name__)
 
-@retry(
-    stop=stop_after_attempt(3),
-    wait=wait_fixed(60 * 60),
-    retry=retry_if_exception_type(Exception),
-    reraise=True,
-)
 def get_keycloak(username, password, client_id="cdse-public"):
     """
     Obtains an access token from Keycloak for authentication.
