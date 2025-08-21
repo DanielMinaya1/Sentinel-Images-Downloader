@@ -1,7 +1,7 @@
-import rasterio
 from sentinel_images_downloader.downloader.base_downloader import SentinelDownloader
+from sentinel_images_downloader.config.templates import S2_QUERY, S2_QUERY_NO_ORBIT
 from sentinel_images_downloader.utils.io_utils import load_json, resolve_config_path
-from pathlib import Path 
+import rasterio
 import logging
 
 logger = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ class Sentinel2(SentinelDownloader):
                        output_dir='/data/sentinel2/')
         """
         attributes = [
-            f"tile_ids={[(tile_id, self.orbits[tile_id]) for tile_id in self.tile_ids]}",
+            f"tile_ids={[(tile_id, self.orbits.get(tile_id)) for tile_id in self.tile_ids]}",
             f"bands={self.band_selection}",
             f"product_level={self.product_level}",
             f"range_date={self.initial_date} to {self.last_date}",
@@ -64,16 +64,25 @@ class Sentinel2(SentinelDownloader):
         Returns:
             str: A formatted OData query string.
         """
-        query = [
-            f"{self.data_url}/Products?$filter=Collection/Name eq '{self.data_collection}'",
-            f"ContentDate/Start ge {initial_date}",
-            f"ContentDate/End le {last_date}",
-            f"contains(Name, '{tile_id}')",
-            f"contains(Name, '{self.product_level}')",
-            f"contains(Name, '{self.orbits[tile_id]}')",
-            "Online eq True&$top=500&$orderby=ContentDate/Start asc",
-        ]
-        return " and ".join(query)
+        if tile_id in self.orbits:
+            return S2_QUERY.format(
+                data_url=self.data_url,
+                data_collection=self.data_collection,
+                initial_date=initial_date,
+                last_date=last_date,
+                tile_id=tile_id,
+                product_level=self.product_level,
+                orbit_number=self.orbits[tile_id],
+            )
+        else: 
+            return S2_QUERY_NO_ORBIT.format(
+                data_url=self.data_url,
+                data_collection=self.data_collection,
+                initial_date=initial_date,
+                last_date=last_date,
+                tile_id=tile_id,
+                product_level=self.product_level,
+            )
 
     def filter_images(self, files_list):
         """
