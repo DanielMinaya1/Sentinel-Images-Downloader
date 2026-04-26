@@ -1,6 +1,6 @@
-from sentinel_images_downloader.downloader.base_downloader import SentinelDownloader
-from sentinel_images_downloader.config.templates import S2_QUERY, S2_QUERY_NO_ORBIT
-from sentinel_images_downloader.utils.io_utils import load_json, resolve_config_path
+from downloader.downloaders.base_downloader import SentinelDownloader
+from downloader.config.templates import S2_QUERY, S2_QUERY_NO_ORBIT
+from downloader.utils.io import load_json, resolve_config_path
 import rasterio
 import logging
 

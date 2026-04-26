@@ -6,16 +6,16 @@ and loads the corresponding configuration. It retrieves authentication credentia
 from environment variables and starts the download process.
 """
 
-from sentinel_images_downloader.downloader.s1_downloader import Sentinel1
-from sentinel_images_downloader.downloader.s2_downloader import Sentinel2
-from sentinel_images_downloader.utils.io_utils import load_json, resolve_config_path
-from sentinel_images_downloader.config.path import LOGS_DIR
+from downloader.downloaders.s1_downloader import Sentinel1
+from downloader.downloaders.s2_downloader import Sentinel2
+from downloader.utils.io import load_json, resolve_config_path
+from downloader.config.path import LOGS_DIR
 from datetime import datetime
 from dotenv import load_dotenv
 import argparse
 import os
 
-from sentinel_images_downloader.config.logger import setup_logger
+from downloader.config.logger import setup_logger
 today = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
 log_path = LOGS_DIR / f"{today}.log"
 logger = setup_logger(file_name=log_path)

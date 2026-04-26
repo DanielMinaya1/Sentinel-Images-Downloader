@@ -1,5 +1,5 @@
-from sentinel_images_downloader.downloader.base_downloader import SentinelDownloader
-from sentinel_images_downloader.utils.io_utils import load_json, resolve_config_path
+from downloader.downloaders.base_downloader import SentinelDownloader
+from downloader.utils.io import load_json, resolve_config_path
 from pathlib import Path 
 import rasterio
 import logging
