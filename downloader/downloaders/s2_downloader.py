@@ -1,14 +1,27 @@
 from downloader.downloaders.base_downloader import SentinelDownloader
 from downloader.config.templates import S2_QUERY, S2_QUERY_NO_ORBIT
 from downloader.utils.io import load_json, resolve_config_path
+from pathlib import Path
+from typing import List
 import rasterio
 import logging
 
 logger = logging.getLogger(__name__)
 
 class Sentinel2(SentinelDownloader):
-    def __init__(self, username, password, tile_ids, product_level, relative_orbits_path, 
-        initial_date, last_date, band_selection, output_dir, max_retries):
+    def __init__(
+        self, 
+        username: str, 
+        password: str, 
+        tile_ids: List[str], 
+        product_level: str, 
+        relative_orbits_path: str, 
+        initial_date: str, 
+        last_date: str, 
+        band_selection: List[str], 
+        output_dir: str, 
+        max_retries: int,
+    ):
         """
         Args:
             tile_ids (list[str]): Ids of the tiles to download.
@@ -16,7 +29,14 @@ class Sentinel2(SentinelDownloader):
             relative_orbits_path (str): Path to JSON containing orbit for each tile.
             band_selection (list[str]): Bands to download.
         """
-        super().__init__(username, password, initial_date, last_date, output_dir, max_retries)
+        super().__init__(
+            username=username, 
+            password=password, 
+            initial_date=initial_date, 
+            last_date=last_date, 
+            output_dir=output_dir, 
+            max_retries=max_retries,
+        )
         self.data_collection = 'SENTINEL-2'
 
         self.tile_ids = tile_ids
@@ -26,7 +46,7 @@ class Sentinel2(SentinelDownloader):
         self.relative_orbits_path = resolve_config_path(relative_orbits_path)
         self.orbits = load_json(self.relative_orbits_path)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Returns a string representation of the Sentinel-2 object, summarizing its key attributes.
 
@@ -52,7 +72,12 @@ class Sentinel2(SentinelDownloader):
         description = ", ".join(attributes)
         return f"Sentinel-2({description})"
 
-    def get_query(self, tile_id, initial_date, last_date):
+    def get_query(
+        self, 
+        tile_id: str,
+        initial_date: str, 
+        last_date: str,
+    ) -> str:
         """
         Constructs an OData query for retrieving Sentinel-2 products from the Copernicus Data Space API.
 
@@ -84,7 +109,7 @@ class Sentinel2(SentinelDownloader):
                 product_level=self.product_level,
             )
 
-    def filter_images(self, files_list):
+    def filter_images(self, files_list: List[str]) -> List[str]:
         """
         Filters image files based on specific criteria.
 
@@ -101,7 +126,7 @@ class Sentinel2(SentinelDownloader):
         img_data_files = [file for file in files_list if "IMG_DATA" in file]
         return [file for file in img_data_files if any(band in file for band in self.band_selection)]
 
-    def download(self):
+    def download(self) -> None:
         """
         Initiates the download process for all specified Sentinel-2 tiles.
 
@@ -118,7 +143,7 @@ class Sentinel2(SentinelDownloader):
         for tile_id in self.tile_ids:
             self.download_tile(tile_id)
 
-    def validate_download(self, file_path):
+    def validate_download(self, file_path: Path) -> None:
         """
         Validates the downloaded file.
 

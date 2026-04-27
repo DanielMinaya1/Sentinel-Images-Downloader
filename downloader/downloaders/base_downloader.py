@@ -6,14 +6,26 @@ from downloader.utils.xml import parse_manifest, get_files
 from abc import ABC, abstractmethod
 from pathlib import Path
 from tqdm import tqdm
+from typing import Any, Dict, List, Optional
 import requests
 import time 
 import logging
 
 logger = logging.getLogger(__name__)
 
+TOKEN_LIFETIME = 3600      # Copernicus tokens last 1 hour
+TOKEN_REFRESH_MARGIN = 300 # Refresh 5 minutes early
+
 class SentinelDownloader(ABC):
-    def __init__(self, username, password, initial_date, last_date, output_dir, max_retries):
+    def __init__(
+        self, 
+        username: str, 
+        password: str, 
+        initial_date: str, 
+        last_date: str, 
+        output_dir: str, 
+        max_retries: int,
+    ):
         """
         Args:
             username (str): Copernicus API username.
@@ -37,22 +49,36 @@ class SentinelDownloader(ABC):
 
         self.max_retries = max_retries
 
-    def init_session(self):
-        """
-        Initializes an authenticated session for accessing Copernicus Data Space API.
+        self._session: Optional[requests.Session] = None
+        self._token_created_at: Optional[float] = None  # Unix timestamp
 
-        This method:
-        - Retrieves an access token using Keycloak authentication.
-        - Creates a new `requests.Session` instance.
-        - Updates the session headers to include the Bearer token for authorization.
+    def _is_token_expired(self) -> bool:
+        if self._token_created_at is None:
+            return True
+        elapsed = time.time() - self._token_created_at
+        return elapsed >= (TOKEN_LIFETIME - TOKEN_REFRESH_MARGIN)
 
-        Returns:
-            requests.Session: A configured session with authentication headers.
-        """
-        access_token = get_keycloak(self.username, self.password)
-        session = requests.Session()
-        session.headers.update({"Authorization": f"Bearer {access_token}"})
-        return session
+    def _refresh_session(self) -> None:
+        """Creates or refreshes the session with a new Keycloak token."""
+        logger.info("Refreshing Keycloak token...")
+        if self._session is not None:
+            self._session.close()
+
+        access_token = get_keycloak(
+            username=self.username, 
+            password=self.password,
+        )
+        self._session = requests.Session()
+        self._session.headers.update({"Authorization": f"Bearer {access_token}"})
+        self._token_created_at = time.time()
+        logger.info("Session refreshed successfully.")
+
+    @property
+    def session(self) -> requests.Session:
+        """Returns a valid session, refreshing the token if needed."""
+        if self._session is None or self._is_token_expired():
+            self._refresh_session()
+        return self._session
 
     def prepare_output(self, product_name):
         """
@@ -72,16 +98,27 @@ class SentinelDownloader(ABC):
         return product_path
 
     @abstractmethod
-    def get_query(self, tile_id, initial_date, last_date):
+    def get_query(
+        self, 
+        tile_id: str, 
+        initial_date: str, 
+        last_date: str,
+    ) -> str:
         """Abstract method to be implemented by subclasses."""
         pass
 
     @abstractmethod
-    def filter_images(self, files_list):
+    def filter_images(
+        self, 
+        files_list: List[str],
+    ) -> List[str]:
         """Abstract method to be implemented by subclasses."""
         pass
 
-    def download_product(self, session, SAFE_product):
+    def download_product(
+        self, 
+        SAFE_product: Dict[str, Any],
+    ) -> None:
         """
         Downloads a Sentinel product and its relevant files.
 
@@ -93,7 +130,6 @@ class SentinelDownloader(ABC):
         5. Downloads the filtered image files if they do not already exist.
 
         Args:
-            session (requests.Session): An authenticated session for making HTTP requests.
             SAFE_product (dict): A dictionary containing product metadata with:
                 - "Id" (str): The product's unique identifier.
                 - "Name" (str): The product's name.
@@ -111,7 +147,7 @@ class SentinelDownloader(ABC):
         manifest_path = product_path / "manifest.safe"
         if not manifest_path.is_file():
             manifest_url = f"{product_base_url}/Nodes(manifest.safe)/$value"
-            response = session.get(manifest_url, allow_redirects=False)
+            response = self.session.get(manifest_url, allow_redirects=False)
             download_file(response, manifest_path)
 
         xmldict = parse_manifest(manifest_path)
@@ -131,7 +167,7 @@ class SentinelDownloader(ABC):
 
             for attempt in range(1, self.max_retries+1):
                 try:
-                    response = session.get(file_url, allow_redirects=False)
+                    response = self.session.get(file_url, allow_redirects=False)
                     download_file(response, file_path)
                     self.validate_download(file_path)
                     break
@@ -146,7 +182,7 @@ class SentinelDownloader(ABC):
                     else:
                         logger.info(f"Retrying download for {file_path}...")
 
-    def download_tile(self, tile_id):
+    def download_tile(self, tile_id: str) -> None:
         """
         Downloads all Sentinel-2 products for a given tile across multiple date ranges.
 
@@ -162,7 +198,6 @@ class SentinelDownloader(ABC):
 
         Notes:
             - Uses `self.get_query()` to construct the API request URL.
-            - Uses `self.init_session()` to authenticate before downloading.
             - Uses `self.download_product()` to handle the actual file downloads.
             - Introduces a **10-second delay** (`time.sleep(10)`) between iterations to avoid rate limits.
         """
@@ -174,19 +209,16 @@ class SentinelDownloader(ABC):
             
             desc = f"Downloading tile {tile_id} from {initial_date[:10]} to {last_date[:10]}"
             for SAFE_product in tqdm(data.get("value", []), desc=desc):
-                print()            
-                with self.init_session() as session:
-                    self.download_product(session, SAFE_product)
+                self.download_product(SAFE_product)
 
             time.sleep(10)
     
     @abstractmethod
-    def download(self):
+    def download(self) -> None:
         """Abstract method to be implemented by subclasses."""
         pass
 
-
     @abstractmethod
-    def validate_download(self, file_path):
+    def validate_download(self, file_path: Path) -> None:
         """Abstract method to be implemented by subclasses."""
         pass

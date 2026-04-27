@@ -1,16 +1,26 @@
 from downloader.downloaders.base_downloader import SentinelDownloader
 from downloader.utils.io import load_json, resolve_config_path
 from pathlib import Path 
+from typing import List
 import rasterio
 import logging
 
 logger = logging.getLogger(__name__)
 
 class Sentinel1(SentinelDownloader):
-    def __init__(self, username, password, footprints_path, orbit_direction,
-        product_type, polarization_mode, initial_date, last_date, output_dir,
-        max_retries,
-        ):   
+    def __init__(
+        self, 
+        username: str, 
+        password: str, 
+        footprints_path: str, 
+        orbit_direction: str,
+        product_type: str, 
+        polarization_mode: List[str], 
+        initial_date: str, 
+        last_date: str, 
+        output_dir: str,
+        max_retries: int,
+    ):   
         """
         Args:
             footprints_path (str): Path to a JSON file containing AOI footprints.
@@ -18,7 +28,14 @@ class Sentinel1(SentinelDownloader):
             product_type (str): Sentinel-1 product type (e.g., "GRDH", "SLC").
             polarization_mode (list[str]): Polarization modes (e.g., ["VV", "VH"]).
         """   
-        super().__init__(username, password, initial_date, last_date, output_dir, max_retries)
+        super().__init__(
+            username=username, 
+            password=password, 
+            initial_date=initial_date, 
+            last_date=last_date, 
+            output_dir=output_dir, 
+            max_retries=max_retries,
+        )
         self.data_collection = 'SENTINEL-1'
 
         self.orbit_direction = orbit_direction
@@ -28,7 +45,7 @@ class Sentinel1(SentinelDownloader):
         self.footprints_path = resolve_config_path(footprints_path)
         self.footprints = load_json(self.footprints_path)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Returns a string representation of the Sentinel-1 object, summarizing its key attributes.
 
@@ -56,7 +73,12 @@ class Sentinel1(SentinelDownloader):
         description = ", ".join(attributes)
         return f"Sentinel-1({description})"
 
-    def get_query(self, tile_id, initial_date, last_date):
+    def get_query(
+        self, 
+        tile_id: str, 
+        initial_date: str, 
+        last_date: str,
+    ) -> str:
         """
         Constructs an OData query for retrieving Sentinel-1 products from the Copernicus Data Space API.
 
@@ -83,7 +105,7 @@ class Sentinel1(SentinelDownloader):
         ]
         return " and ".join(query)
 
-    def filter_images(self, files_list):
+    def filter_images(self, files_list: List[str]) -> List[str]:
         """
         Filters image files based on specific criteria.
 
@@ -99,7 +121,7 @@ class Sentinel1(SentinelDownloader):
         """
         return files_list
 
-    def download(self):
+    def download(self) -> None:
         """
         Initiates the download process for all specified Sentinel-1 AOIs.
 
@@ -116,7 +138,7 @@ class Sentinel1(SentinelDownloader):
         for tile_id in self.footprints:
             self.download_tile(tile_id)
 
-    def validate_download(self, file_path):
+    def validate_download(self, file_path: Path) -> None:
         """
         Validates the downloaded file.
 
