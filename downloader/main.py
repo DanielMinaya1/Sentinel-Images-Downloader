@@ -6,8 +6,7 @@ and loads the corresponding configuration. It retrieves authentication credentia
 from environment variables and starts the download process.
 """
 
-from downloader.downloaders.s1_downloader import Sentinel1
-from downloader.downloaders.s2_downloader import Sentinel2
+from downloader.downloaders import Sentinel1, Sentinel2
 from downloader.utils.io import load_json, resolve_config_path
 from downloader.config.path import LOGS_DIR
 from datetime import datetime
