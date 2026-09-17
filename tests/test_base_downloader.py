@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 import requests
 
 from downloader.downloaders.s2_downloader import Sentinel2
-from downloader.models import DownloadStatus
+from downloader.models import DownloadStatus, TileDownloadSummary
 
 
 def make_sentinel2(tmp_path, max_retries=3):
@@ -72,3 +72,17 @@ def test_download_with_retries_succeeds_after_transient_failure(tmp_path):
     assert result.status == DownloadStatus.SUCCESS
     assert result.attempts == 2
     assert file_path.read_bytes() == b"file-bytes"
+
+
+def test_download_aggregates_download_tile_results_into_a_run_summary(tmp_path):
+    downloader = make_sentinel2(tmp_path)
+    downloader.tile_ids = ["T19HCC", "T19HCD"]
+    tile_summaries = {
+        "T19HCC": TileDownloadSummary(tile_id="T19HCC"),
+        "T19HCD": TileDownloadSummary(tile_id="T19HCD"),
+    }
+    downloader.download_tile = lambda tile_id: tile_summaries[tile_id]
+
+    run_summary = downloader.download()
+
+    assert run_summary.tiles == [tile_summaries["T19HCC"], tile_summaries["T19HCD"]]
