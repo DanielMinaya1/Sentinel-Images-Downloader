@@ -1,6 +1,12 @@
 from downloader.downloaders.base_downloader import SentinelDownloader
+from downloader.config.templates import S1_QUERY
+from downloader.models import (
+    Sentinel1DownloadStatus, 
+    Sentinel1Response, 
+    SentinelProduct,
+)
 from downloader.utils.io import load_json, resolve_config_path
-from pathlib import Path 
+from pathlib import Path
 from typing import List
 import rasterio
 import logging
@@ -8,6 +14,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 class Sentinel1(SentinelDownloader):
+    response_class = Sentinel1Response
+
     def __init__(
         self, 
         username: str, 
@@ -23,10 +31,14 @@ class Sentinel1(SentinelDownloader):
     ):   
         """
         Args:
-            footprints_path (str): Path to a JSON file containing AOI footprints.
-            orbit_direction (str): Orbit direction (can be "ASCENDING" or "DESCENDING").
-            product_type (str): Sentinel-1 product type (e.g., "GRDH", "SLC").
-            polarization_mode (list[str]): Polarization modes (e.g., ["VV", "VH"]).
+            footprints_path (str): Path to a JSON file containing 
+                                   AOI footprints.
+            orbit_direction (str): Orbit direction (can be 
+                                   "ASCENDING" or "DESCENDING").
+            product_type (str): Sentinel-1 product type 
+                                (e.g., "GRDH", "SLC").
+            polarization_mode (list[str]): Polarization modes 
+                                           (e.g., ["VV", "VH"]).
         """   
         super().__init__(
             username=username, 
@@ -47,7 +59,8 @@ class Sentinel1(SentinelDownloader):
 
     def __repr__(self) -> str:
         """
-        Returns a string representation of the Sentinel-1 object, summarizing its key attributes.
+        Returns a string representation of the Sentinel-1 object, 
+        summarizing its key attributes.
 
         Includes:
         - Footprint names
@@ -58,9 +71,13 @@ class Sentinel1(SentinelDownloader):
         - Output directory
 
         Example:
-            Sentinel-1(footprints=['T19HCC', 'T19KCP'], polarization_mode=['VV', 'VH'], 
-                       orbit_direction='DESCENDING', product_type='GRD', range_date='2023-01-01 to 2023-12-31', 
-                       output_dir='/data/sentinel1/')
+            Sentinel-1(
+                footprints=['T19HCC', 'T19KCP'], 
+                polarization_mode=['VV', 'VH'],
+                product_type='GRD', 
+                range_date='2023-01-01 to 2023-12-31', 
+                output_dir='/data/sentinel1/'
+            )
         """
         attributes = [
             f"footprints={list(self.footprints.keys())}",
@@ -80,30 +97,30 @@ class Sentinel1(SentinelDownloader):
         last_date: str,
     ) -> str:
         """
-        Constructs an OData query for retrieving Sentinel-1 products from the Copernicus Data Space API.
+        Constructs an OData query for retrieving Sentinel-1 products 
+        from the Copernicus Data Space API.
 
         Args:
             tile_id (str): An ID for the footprint of interset.
-            initial_date (str): The start date for the query in the format 'YYYY-MM-DD'.
-            last_date (str): The end date for the query in the format 'YYYY-MM-DD'.
+            initial_date (str): The start date for the query in the 
+                                format 'YYYY-MM-DD'.
+            last_date (str): The end date for the query in the format 
+                             'YYYY-MM-DD'.
 
         Returns:
             str: A formatted OData query string.
         """
         aoi = self.footprints[tile_id]
         footprint = ", ".join(aoi)
-        query = [
-            f"{self.data_url}/Products?$filter=Collection/Name eq '{self.data_collection}'",
-            f"ContentDate/Start ge {initial_date}",
-            f"ContentDate/End le {last_date}",
-            f"OData.CSC.Intersects(area=geography'SRID=4326;POLYGON(({footprint}))')",
-            "Attributes/OData.CSC.StringAttribute/any(att:att/Name eq 'orbitDirection'",
-            f"att/OData.CSC.StringAttribute/Value eq '{self.orbit_direction}')",
-            f"contains(Name, '{self.product_type}')",
-            "not (contains(Name, 'COG'))",
-            "Online eq True&$top=20&$orderby=ContentDate/Start asc",
-        ]
-        return " and ".join(query)
+        return S1_QUERY.format(
+            data_url=self.data_url,
+            data_collection=self.data_collection,
+            initial_date=initial_date,
+            last_date=last_date,
+            footprint=footprint,
+            orbit_direction=self.orbit_direction,
+            product_type=self.product_type,
+        )
 
     def filter_images(self, files_list: List[str]) -> List[str]:
         """
@@ -116,23 +133,33 @@ class Sentinel1(SentinelDownloader):
             list of str: A filtered list of file paths that match the criteria.
 
         Notes:
-            - In this case, filter_images is the identity.
-              Download all the files for processing later.
+            - Keeps only files whose name matches one of the requested
+              `polarization_mode` values (e.g. "VV", "VH"), which Sentinel-1
+              SAFE products encode directly in each file's name.
         """
-        return files_list
+        polarizations = [pol.lower() for pol in self.polarization_mode]
+        return [
+            file 
+            for file in files_list 
+            if any(pol in file.lower() for pol in polarizations)
+        ]
 
     def download(self) -> None:
         """
         Initiates the download process for all specified Sentinel-1 AOIs.
 
         This method:
-        1. Prints a summary of the current download configuration (`self.__repr__()`).
+        1. Prints a summary of the current download configuration 
+           (`self.__repr__()`).
         2. Iterates over all tile IDs stored in `self.tile_ids`.
-        3. Calls `self.download_tile(tile_id)` to handle the download process for each tile.
+        3. Calls `self.download_tile(tile_id)` to handle the download process 
+           for each tile.
 
         Notes:
-            - The `self.download_tile()` method is responsible for querying and downloading products.
-            - This function acts as the main entry point for triggering the download process.
+            - The `self.download_tile()` method is responsible for querying 
+              and downloading products.
+            - This function acts as the main entry point for triggering the 
+              download process.
         """
         logger.info(self)
         for tile_id in self.footprints:
@@ -154,3 +181,14 @@ class Sentinel1(SentinelDownloader):
             message = f"Invalid TIFF file: {e}"
             logger.error(message)
             raise ValueError(message)
+
+    def _create_status(
+        self, 
+        product: SentinelProduct,
+    ) -> Sentinel1DownloadStatus:
+        return Sentinel1DownloadStatus(
+            product_id=product.id,
+            product_name=product.name,
+            orbit_direction=self.orbit_direction,
+            polarization_mode=self.polarization_mode,
+        )
