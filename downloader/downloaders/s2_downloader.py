@@ -1,5 +1,10 @@
 from downloader.downloaders.base_downloader import SentinelDownloader
 from downloader.config.templates import S2_QUERY, S2_QUERY_NO_ORBIT
+from downloader.models import (
+    Sentinel2DownloadStatus, 
+    Sentinel2Response, 
+    SentinelProduct,
+)
 from downloader.utils.io import load_json, resolve_config_path
 from pathlib import Path
 from typing import List
@@ -9,6 +14,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 class Sentinel2(SentinelDownloader):
+    response_class = Sentinel2Response
+
     def __init__(
         self, 
         username: str, 
@@ -25,8 +32,10 @@ class Sentinel2(SentinelDownloader):
         """
         Args:
             tile_ids (list[str]): Ids of the tiles to download.
-            product_level (str): Level of the product (can be "L1C" or "L2A").
-            relative_orbits_path (str): Path to JSON containing orbit for each tile.
+            product_level (str): Level of the product 
+                                 (can be "L1C" or "L2A").
+            relative_orbits_path (str): Path to JSON containing 
+                                        orbit for each tile.
             band_selection (list[str]): Bands to download.
         """
         super().__init__(
@@ -48,7 +57,8 @@ class Sentinel2(SentinelDownloader):
 
     def __repr__(self) -> str:
         """
-        Returns a string representation of the Sentinel-2 object, summarizing its key attributes.
+        Returns a string representation of the Sentinel-2 object, 
+        summarizing its key attributes.
 
         Includes:
         - Tile IDs with their corresponding orbits
@@ -58,12 +68,19 @@ class Sentinel2(SentinelDownloader):
         - Output directory
 
         Example:
-            Sentinel-2(tile_ids=[('T19HCC', 'R096'), ('T19KCP', 'R139')], bands=['B02', 'B03'], 
-                       level='L2A', range_date='2023-01-01 to 2023-12-31', 
-                       output_dir='/data/sentinel2/')
+            Sentinel-2(
+                tile_ids=[
+                    ('T19HCC', 'R096'), 
+                    ('T19KCP', 'R139')
+                ], 
+                bands=['B02', 'B03'], 
+                product_level='L2A', 
+                range_date='2023-01-01 to 2023-12-31', 
+                output_dir='/data/sentinel2/'
+            )
         """
         attributes = [
-            f"tile_ids={[(tile_id, self.orbits.get(tile_id)) for tile_id in self.tile_ids]}",
+            f"tile_ids={[(t, self.orbits.get(t)) for t in self.tile_ids]}",
             f"bands={self.band_selection}",
             f"product_level={self.product_level}",
             f"range_date={self.initial_date} to {self.last_date}",
@@ -79,12 +96,15 @@ class Sentinel2(SentinelDownloader):
         last_date: str,
     ) -> str:
         """
-        Constructs an OData query for retrieving Sentinel-2 products from the Copernicus Data Space API.
+        Constructs an OData query for retrieving Sentinel-2 
+        products from the Copernicus Data Space API.
 
         Args:
             tile_id (str): The Sentinel-2 tile ID to filter results.
-            initial_date (str): The start date for the query in the format 'YYYY-MM-DD'.
-            last_date (str): The end date for the query in the format 'YYYY-MM-DD'.
+            initial_date (str): The start date for the query in the 
+                                format 'YYYY-MM-DD'.
+            last_date (str): The end date for the query in the format 
+                             'YYYY-MM-DD'.
 
         Returns:
             str: A formatted OData query string.
@@ -124,20 +144,28 @@ class Sentinel2(SentinelDownloader):
             list of str: A filtered list of file paths that match the criteria.
         """
         img_data_files = [file for file in files_list if "IMG_DATA" in file]
-        return [file for file in img_data_files if any(band in file for band in self.band_selection)]
+        return [
+            file 
+            for file in img_data_files 
+            if any(band in file for band in self.band_selection)
+        ]
 
     def download(self) -> None:
         """
         Initiates the download process for all specified Sentinel-2 tiles.
 
         This method:
-        1. Prints a summary of the current download configuration (`self.__repr__()`).
+        1. Prints a summary of the current download configuration 
+           (`self.__repr__()`).
         2. Iterates over all tile IDs stored in `self.tile_ids`.
-        3. Calls `self.download_tile(tile_id)` to handle the download process for each tile.
+        3. Calls `self.download_tile(tile_id)` to handle the download 
+           process for each tile.
 
         Notes:
-            - The `self.download_tile()` method is responsible for querying and downloading products.
-            - This function acts as the main entry point for triggering the download process.
+            - The `self.download_tile()` method is responsible for querying 
+              and downloading products.
+            - This function acts as the main entry point for triggering the 
+              download process.
         """
         logger.info(self)
         for tile_id in self.tile_ids:
@@ -160,3 +188,14 @@ class Sentinel2(SentinelDownloader):
             message = f"Invalid JP2 file: {e}"
             logger.error(message, exc_info=True)
             raise ValueError(message)
+
+    def _create_status(
+        self, 
+        product: SentinelProduct,
+    ) -> Sentinel2DownloadStatus:
+        return Sentinel2DownloadStatus(
+            product_id=product.id,
+            product_name=product.name,
+            product_level=self.product_level,
+            band_selection=self.band_selection,
+        )
