@@ -18,13 +18,13 @@ S2_QUERY_NO_ORBIT = (
 )
 
 S1_QUERY = (
-    "{self.data_url}/Products?$filter=Collection/Name eq '{self.data_collection}' and "
+    "{data_url}/Products?$filter=Collection/Name eq '{data_collection}' and "
     "ContentDate/Start ge {initial_date} and "
     "ContentDate/End le {last_date} and "
     "OData.CSC.Intersects(area=geography'SRID=4326;POLYGON(({footprint}))') and "
     "Attributes/OData.CSC.StringAttribute/any(att:att/Name eq 'orbitDirection' and "
-    "att/OData.CSC.StringAttribute/Value eq '{self.orbit_direction}') and "
-    "contains(Name, '{self.product_type}') and "
+    "att/OData.CSC.StringAttribute/Value eq '{orbit_direction}') and "
+    "contains(Name, '{product_type}') and "
     "not (contains(Name, 'COG')) and "
-    "Online eq True&$top=20&$orderby=ContentDate/Start asc"  
+    "Online eq True&$top=20&$orderby=ContentDate/Start asc"
 )
