@@ -10,7 +10,7 @@
     "initial_date": "2018-01-01",
     "last_date": "2018-01-11",
     "product_level": "L2A",
-    "relative_orbits_path": "data/s2_relative_orbits.json",
+    "db_path": "data/sentinel.db",
     "output_dir": "Sentinel-2",
     "max_retries": 3
 }
