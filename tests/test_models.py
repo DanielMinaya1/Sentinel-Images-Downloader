@@ -12,7 +12,6 @@ from downloader.models import (
     TileDownloadSummary,
 )
 
-
 ODATA_PAYLOAD = {
     "value": [
         {

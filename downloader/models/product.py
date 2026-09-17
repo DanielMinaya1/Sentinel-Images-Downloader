@@ -1,20 +1,20 @@
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 @dataclass(frozen=True)
 class SentinelProduct:
-    """A single product entry from the 
+    """A single product entry from the
     Copernicus OData catalogue response."""
 
     id: str
     name: str
-    content_date_start: Optional[str] = None
-    content_date_end: Optional[str] = None
-    online: Optional[bool] = None
+    content_date_start: str | None = None
+    content_date_end: str | None = None
+    online: bool | None = None
 
     @classmethod
-    def from_json(cls, data: Dict[str, Any]) -> "SentinelProduct":
+    def from_json(cls, data: dict[str, Any]) -> "SentinelProduct":
         content_date = data.get("ContentDate") or {}
         return cls(
             id=data["Id"],

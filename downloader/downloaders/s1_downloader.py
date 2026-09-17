@@ -1,5 +1,10 @@
-from downloader.downloaders.base_downloader import SentinelDownloader
+import logging
+from pathlib import Path
+
+import rasterio
+
 from downloader.config.templates import S1_QUERY
+from downloader.downloaders.base_downloader import SentinelDownloader
 from downloader.models import (
     RunSummary,
     Sentinel1DownloadStatus,
@@ -7,12 +12,9 @@ from downloader.models import (
     SentinelProduct,
 )
 from downloader.storage.repositories import FootprintRepository
-from pathlib import Path
-from typing import List, Union
-import rasterio
-import logging
 
 logger = logging.getLogger(__name__)
+
 
 class Sentinel1(SentinelDownloader):
     response_class = Sentinel1Response
@@ -21,10 +23,10 @@ class Sentinel1(SentinelDownloader):
         self,
         username: str,
         password: str,
-        db_path: Union[str, Path],
+        db_path: str | Path,
         orbit_direction: str,
         product_type: str,
-        polarization_mode: List[str],
+        polarization_mode: list[str],
         initial_date: str,
         last_date: str,
         output_dir: str,
@@ -49,7 +51,7 @@ class Sentinel1(SentinelDownloader):
             output_dir=output_dir,
             max_retries=max_retries,
         )
-        self.data_collection = 'SENTINEL-1'
+        self.data_collection = "SENTINEL-1"
 
         self.orbit_direction = orbit_direction
         self.product_type = product_type
@@ -60,7 +62,7 @@ class Sentinel1(SentinelDownloader):
 
     def __repr__(self) -> str:
         """
-        Returns a string representation of the Sentinel-1 object, 
+        Returns a string representation of the Sentinel-1 object,
         summarizing its key attributes.
 
         Includes:
@@ -73,10 +75,10 @@ class Sentinel1(SentinelDownloader):
 
         Example:
             Sentinel-1(
-                footprints=['T19HCC', 'T19KCP'], 
+                footprints=['T19HCC', 'T19KCP'],
                 polarization_mode=['VV', 'VH'],
-                product_type='GRD', 
-                range_date='2023-01-01 to 2023-12-31', 
+                product_type='GRD',
+                range_date='2023-01-01 to 2023-12-31',
                 output_dir='/data/sentinel1/'
             )
         """
@@ -86,26 +88,26 @@ class Sentinel1(SentinelDownloader):
             f"orbit_direction={self.orbit_direction}",
             f"product_type={self.product_type}",
             f"range_date={self.initial_date} to {self.last_date}",
-            f"output_dir={self.output_dir}"
+            f"output_dir={self.output_dir}",
         ]
         description = ", ".join(attributes)
         return f"Sentinel-1({description})"
 
     def get_query(
-        self, 
-        tile_id: str, 
-        initial_date: str, 
+        self,
+        tile_id: str,
+        initial_date: str,
         last_date: str,
     ) -> str:
         """
-        Constructs an OData query for retrieving Sentinel-1 products 
+        Constructs an OData query for retrieving Sentinel-1 products
         from the Copernicus Data Space API.
 
         Args:
             tile_id (str): An ID for the footprint of interset.
-            initial_date (str): The start date for the query in the 
+            initial_date (str): The start date for the query in the
                                 format 'YYYY-MM-DD'.
-            last_date (str): The end date for the query in the format 
+            last_date (str): The end date for the query in the format
                              'YYYY-MM-DD'.
 
         Returns:
@@ -123,7 +125,7 @@ class Sentinel1(SentinelDownloader):
             product_type=self.product_type,
         )
 
-    def filter_images(self, files_list: List[str]) -> List[str]:
+    def filter_images(self, files_list: list[str]) -> list[str]:
         """
         Filters image files based on specific criteria.
 
@@ -139,11 +141,7 @@ class Sentinel1(SentinelDownloader):
               SAFE products encode directly in each file's name.
         """
         polarizations = [pol.lower() for pol in self.polarization_mode]
-        return [
-            file 
-            for file in files_list 
-            if any(pol in file.lower() for pol in polarizations)
-        ]
+        return [file for file in files_list if any(pol in file.lower() for pol in polarizations)]
 
     def download(self) -> RunSummary:
         """
@@ -183,14 +181,14 @@ class Sentinel1(SentinelDownloader):
             return
         try:
             with rasterio.open(file_path) as src:
-                src.meta
+                _ = src.meta
         except Exception as e:
             message = f"Invalid TIFF file: {e}"
             logger.error(message)
-            raise ValueError(message)
+            raise ValueError(message) from e
 
     def _create_status(
-        self, 
+        self,
         product: SentinelProduct,
     ) -> Sentinel1DownloadStatus:
         return Sentinel1DownloadStatus(

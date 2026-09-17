@@ -8,10 +8,10 @@ Example:
     print(f"{summary.succeeded} succeeded, {summary.failed} failed")
 """
 
+import os
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, Dict, Literal, Optional, Tuple, Union
-import os
+from typing import Any, Literal, TypeAlias
 
 from dotenv import load_dotenv
 
@@ -28,16 +28,16 @@ from downloader.utils.io import load_json, resolve_config_path
 Satellite = Literal["s1", "s2"]
 
 # Mapping of satellite names to their respective downloader/config classes.
-SATELLITE_DOWNLOADERS: Dict[str, type] = {"s1": Sentinel1, "s2": Sentinel2}
-SATELLITE_CONFIGS: Dict[str, type] = {"s1": Sentinel1Config, "s2": Sentinel2Config}
+SATELLITE_DOWNLOADERS: dict[str, type[SentinelDownloader]] = {"s1": Sentinel1, "s2": Sentinel2}
+SATELLITE_CONFIGS: dict[str, type[SentinelConfig]] = {"s1": Sentinel1Config, "s2": Sentinel2Config}
 
-ConfigLike = Union[Dict[str, Any], SentinelConfig]
+ConfigLike: TypeAlias = dict[str, Any] | SentinelConfig
 
 
 def _resolve_credentials(
-    username: Optional[str],
-    password: Optional[str],
-) -> Tuple[str, str]:
+    username: str | None,
+    password: str | None,
+) -> tuple[str, str]:
     load_dotenv()
     username = username or os.getenv("COPERNICUS_USERNAME")
     password = password or os.getenv("COPERNICUS_PASSWORD")
@@ -52,25 +52,29 @@ def _resolve_credentials(
 
 
 def _resolve_config(
-    satellite: Satellite, 
-    config: Optional[ConfigLike],
+    satellite: Satellite,
+    config: ConfigLike | None,
 ) -> SentinelConfig:
     if isinstance(config, SentinelConfig):
         return config
 
-    if config is None:
-        config = load_json(resolve_config_path(f"{satellite}_default_config.json"))
-
+    config_dict: dict[str, Any] = (
+        config
+        if config is not None
+        else load_json(
+            resolve_config_path(f"{satellite}_default_config.json"),
+        )
+    )
     ConfigClass = SATELLITE_CONFIGS[satellite]
-    return ConfigClass.from_json(config)
+    return ConfigClass.from_json(config_dict)
 
 
 def build_downloader(
     satellite: Satellite,
-    config: Optional[ConfigLike] = None,
+    config: ConfigLike | None = None,
     *,
-    username: Optional[str] = None,
-    password: Optional[str] = None,
+    username: str | None = None,
+    password: str | None = None,
 ) -> SentinelDownloader:
     """
     Builds a ready-to-use `Sentinel1`/`Sentinel2` instance.
@@ -84,8 +88,8 @@ def build_downloader(
 
     DownloaderClass = SATELLITE_DOWNLOADERS[satellite]
     return DownloaderClass(
-        username=username, 
-        password=password, 
+        username=username,
+        password=password,
         **resolved_config.to_kwargs(),
     )
 
@@ -94,10 +98,10 @@ def download_tile(
     satellite: Satellite,
     tile_id: str,
     *,
-    username: Optional[str] = None,
-    password: Optional[str] = None,
-    config: Optional[ConfigLike] = None,
-    output_dir: Optional[Union[str, Path]] = None,
+    username: str | None = None,
+    password: str | None = None,
+    config: ConfigLike | None = None,
+    output_dir: str | Path | None = None,
 ) -> TileDownloadSummary:
     """
     Downloads every available product for a single tile/footprint and

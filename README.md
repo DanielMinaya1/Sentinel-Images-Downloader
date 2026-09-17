@@ -5,7 +5,7 @@ A Python script to download Sentinel-1 and Sentinel-2 images from the Copernicus
 ## Requirements
 1. Copernicus Data Space Account: Register for a free account on the [Copernicus Data Space Ecosystem](https://dataspace.copernicus.eu/).
 2. Credentials Setup: Create a .env file in the project directory with your login.
-```text 
+```text
 COPERNICUS_USERNAME=your_username
 COPERNICUS_PASSWORD=your_password
 ```
@@ -21,6 +21,13 @@ cd sentinel-images-downloader
 This project uses [Poetry](https://python-poetry.org/) to manage its virtual environment and dependencies:
 ```bash
 poetry install
+```
+
+**3. (Contributors) Enable pre-commit hooks**
+
+Runs `ruff`/`mypy`/basic file hygiene checks before each commit:
+```bash
+poetry run pre-commit install
 ```
 
 ## Usage
@@ -81,7 +88,7 @@ To use a custom configuration, specify the file name when running the script. It
 ```bash
 poetry run python -m downloader.main -s s1 -c my_custom_s1_config.json
 ```
-or 
+or
 ```bash
 poetry run python -m downloader.main -s s2 -c my_custom_s2_config.json
 ```
@@ -92,7 +99,8 @@ Sentinel-1 AOI footprints and Sentinel-2 relative orbits are looked up from a sm
 from downloader.storage.repositories import FootprintRepository, OrbitRepository
 
 FootprintRepository("data/sentinel.db").upsert(
-    "T19KCP", ["-69.9 -34.4", "-69.9 -35.4", "-68.8 -35.4", "-68.8 -34.4", "-69.9 -34.4"],
+    "T19KCP",
+    ["-69.9 -34.4", "-69.9 -35.4", "-68.8 -35.4", "-68.8 -34.4", "-69.9 -34.4"],
 )
 OrbitRepository("data/sentinel.db").upsert("T19KCP", "R139")
 ```
@@ -120,7 +128,7 @@ To download Sentinel-2 images for tile T19KCP from 2019 to 2022, including speci
     "tile_ids": ["T19KCP"],
     "band_selection": ["B02_10m", "B8A_20m", "TCI_10m"],
     "initial_date": "2019-01-01",
-    "last_date": "2022-12-31", 
+    "last_date": "2022-12-31",
     "product_level": "L2A",
     "db_path": "data/sentinel.db",
     "output_dir": "/path/to/output",

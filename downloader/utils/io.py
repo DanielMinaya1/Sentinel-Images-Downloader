@@ -1,31 +1,33 @@
-from collections import defaultdict
-from pathlib import Path
-import platform
 import json
 import logging
+import platform
+from collections import defaultdict
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
 
 def process_path(file_path):
     if platform.system() == "Windows":
         file_path = Path(f"\\\\?\\{file_path}")
     return file_path
 
+
 def load_json(file_path, default_type=None):
     """
-    Loads a JSON file and returns its contents as a dictionary. 
-    
-    If the file does not exist, returns an empty dictionary or a `defaultdict` 
+    Loads a JSON file and returns its contents as a dictionary.
+
+    If the file does not exist, returns an empty dictionary or a `defaultdict`
     if `default_type` is provided.
 
     Args:
         file_path (Path): The path to the JSON file.
         default_type (Callable[[], Any], optional): A callable that provides
-            the default value type for a `defaultdict`. If None, a standard 
+            the default value type for a `defaultdict`. If None, a standard
             dictionary is returned.
 
     Returns:
-        dict or defaultdict: The parsed JSON content as a dictionary, or a 
+        dict or defaultdict: The parsed JSON content as a dictionary, or a
         defaultdict if `default_type` is specified.
     """
     if file_path.is_file():
@@ -34,14 +36,15 @@ def load_json(file_path, default_type=None):
             with file_path.open("r", encoding="utf-8") as file:
                 data = json.load(file)
                 return defaultdict(default_type, data) if default_type else data
-            
+
         except json.JSONDecodeError as e:
             logger.error(f"Malformed JSON in {file_path}: {e}")
             raise
-    
+
     else:
-        logger.warning(f"JSON file not found at {file_path}. Returning empty.") 
+        logger.warning(f"JSON file not found at {file_path}. Returning empty.")
         return defaultdict(default_type) if default_type else {}
+
 
 def resolve_config_path(config_name_or_path, default_subdir="examples"):
     path = Path(config_name_or_path)
@@ -55,6 +58,7 @@ def resolve_config_path(config_name_or_path, default_subdir="examples"):
         message = f"Config file not found: {config_name_or_path}"
         logger.error(message, exc_info=True)
         raise FileNotFoundError(message)
+
 
 def download_file(response, file_path, chunk_size=8192):
     """
