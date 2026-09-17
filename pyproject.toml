@@ -13,6 +13,9 @@ rasterio = "^1.3.10"
 python-dotenv = "^1.0.1"
 tqdm = "^4.66.4"
 
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0"
+
 [tool.poetry.urls]
 repository = "https://github.com/DanielMinaya1/Sentinel-Images-Downloader"
 
