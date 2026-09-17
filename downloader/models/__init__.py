@@ -4,6 +4,7 @@ from downloader.models.response import Sentinel1Response, Sentinel2Response, Sen
 from downloader.models.status import (
     DownloadStatus,
     FileDownloadResult,
+    RunSummary,
     Sentinel1DownloadStatus,
     Sentinel2DownloadStatus,
     SentinelDownloadStatus,
@@ -21,6 +22,7 @@ __all__ = [
     "Sentinel1DownloadStatus",
     "Sentinel2DownloadStatus",
     "TileDownloadSummary",
+    "RunSummary",
     "SentinelConfig",
     "Sentinel1Config",
     "Sentinel2Config",
