@@ -5,7 +5,7 @@ def make_sentinel1(tmp_path, polarization_mode):
     return Sentinel1(
         username="user",
         password="pass",
-        footprints_path="data/s1_footprints.json",
+        db_path="data/sentinel.db",
         orbit_direction="DESCENDING",
         product_type="GRD",
         polarization_mode=polarization_mode,
@@ -42,3 +42,14 @@ def test_filter_images_keeps_all_requested_polarizations(tmp_path):
     filtered = downloader.filter_images(FILES)
 
     assert filtered == FILES
+
+
+def test_get_query_formats_without_error(tmp_path):
+    downloader = make_sentinel1(tmp_path, polarization_mode=["VV"])
+
+    query = downloader.get_query("T19HCC", "2023-01-01", "2023-01-31")
+
+    assert "SENTINEL-1" in query
+    assert "DESCENDING" in query
+    assert "GRD" in query
+    assert "{self." not in query
