@@ -1,13 +1,13 @@
 from downloader.downloaders.base_downloader import SentinelDownloader
 from downloader.config.templates import S2_QUERY, S2_QUERY_NO_ORBIT
 from downloader.models import (
-    Sentinel2DownloadStatus, 
-    Sentinel2Response, 
+    Sentinel2DownloadStatus,
+    Sentinel2Response,
     SentinelProduct,
 )
-from downloader.utils.io import load_json, resolve_config_path
+from downloader.storage.repositories import OrbitRepository
 from pathlib import Path
-from typing import List
+from typing import List, Union
 import rasterio
 import logging
 
@@ -17,33 +17,33 @@ class Sentinel2(SentinelDownloader):
     response_class = Sentinel2Response
 
     def __init__(
-        self, 
-        username: str, 
-        password: str, 
-        tile_ids: List[str], 
-        product_level: str, 
-        relative_orbits_path: str, 
-        initial_date: str, 
-        last_date: str, 
-        band_selection: List[str], 
-        output_dir: str, 
+        self,
+        username: str,
+        password: str,
+        tile_ids: List[str],
+        product_level: str,
+        db_path: Union[str, Path],
+        initial_date: str,
+        last_date: str,
+        band_selection: List[str],
+        output_dir: str,
         max_retries: int,
     ):
         """
         Args:
             tile_ids (list[str]): Ids of the tiles to download.
-            product_level (str): Level of the product 
+            product_level (str): Level of the product
                                  (can be "L1C" or "L2A").
-            relative_orbits_path (str): Path to JSON containing 
-                                        orbit for each tile.
+            db_path (str): Path to the SQLite database containing the
+                           `s2_orbits` table (tile_id -> relative orbit).
             band_selection (list[str]): Bands to download.
         """
         super().__init__(
-            username=username, 
-            password=password, 
-            initial_date=initial_date, 
-            last_date=last_date, 
-            output_dir=output_dir, 
+            username=username,
+            password=password,
+            initial_date=initial_date,
+            last_date=last_date,
+            output_dir=output_dir,
             max_retries=max_retries,
         )
         self.data_collection = 'SENTINEL-2'
@@ -52,8 +52,8 @@ class Sentinel2(SentinelDownloader):
         self.product_level = product_level
         self.band_selection = band_selection
 
-        self.relative_orbits_path = resolve_config_path(relative_orbits_path)
-        self.orbits = load_json(self.relative_orbits_path)
+        self.orbit_repository = OrbitRepository(db_path)
+        self.orbits = self.orbit_repository.all()
 
     def __repr__(self) -> str:
         """
