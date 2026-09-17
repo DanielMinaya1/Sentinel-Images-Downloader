@@ -1,6 +1,7 @@
 from downloader.downloaders.base_downloader import SentinelDownloader
 from downloader.config.templates import S2_QUERY, S2_QUERY_NO_ORBIT
 from downloader.models import (
+    RunSummary,
     Sentinel2DownloadStatus,
     Sentinel2Response,
     SentinelProduct,
@@ -150,26 +151,32 @@ class Sentinel2(SentinelDownloader):
             if any(band in file for band in self.band_selection)
         ]
 
-    def download(self) -> None:
+    def download(self) -> RunSummary:
         """
         Initiates the download process for all specified Sentinel-2 tiles.
 
         This method:
-        1. Prints a summary of the current download configuration 
+        1. Prints a summary of the current download configuration
            (`self.__repr__()`).
         2. Iterates over all tile IDs stored in `self.tile_ids`.
-        3. Calls `self.download_tile(tile_id)` to handle the download 
+        3. Calls `self.download_tile(tile_id)` to handle the download
            process for each tile.
 
+        Returns:
+            RunSummary: The outcome of downloading every tile, for use by
+            callers that want to report on or inspect what happened.
+
         Notes:
-            - The `self.download_tile()` method is responsible for querying 
+            - The `self.download_tile()` method is responsible for querying
               and downloading products.
-            - This function acts as the main entry point for triggering the 
+            - This function acts as the main entry point for triggering the
               download process.
         """
         logger.info(self)
+        run_summary = RunSummary()
         for tile_id in self.tile_ids:
-            self.download_tile(tile_id)
+            run_summary.tiles.append(self.download_tile(tile_id))
+        return run_summary
 
     def validate_download(self, file_path: Path) -> None:
         """

@@ -1,6 +1,7 @@
 from downloader.downloaders.base_downloader import SentinelDownloader
 from downloader.config.templates import S1_QUERY
 from downloader.models import (
+    RunSummary,
     Sentinel1DownloadStatus,
     Sentinel1Response,
     SentinelProduct,
@@ -144,26 +145,32 @@ class Sentinel1(SentinelDownloader):
             if any(pol in file.lower() for pol in polarizations)
         ]
 
-    def download(self) -> None:
+    def download(self) -> RunSummary:
         """
         Initiates the download process for all specified Sentinel-1 AOIs.
 
         This method:
-        1. Prints a summary of the current download configuration 
+        1. Prints a summary of the current download configuration
            (`self.__repr__()`).
         2. Iterates over all tile IDs stored in `self.tile_ids`.
-        3. Calls `self.download_tile(tile_id)` to handle the download process 
+        3. Calls `self.download_tile(tile_id)` to handle the download process
            for each tile.
 
+        Returns:
+            RunSummary: The outcome of downloading every AOI, for use by
+            callers that want to report on or inspect what happened.
+
         Notes:
-            - The `self.download_tile()` method is responsible for querying 
+            - The `self.download_tile()` method is responsible for querying
               and downloading products.
-            - This function acts as the main entry point for triggering the 
+            - This function acts as the main entry point for triggering the
               download process.
         """
         logger.info(self)
+        run_summary = RunSummary()
         for tile_id in self.footprints:
-            self.download_tile(tile_id)
+            run_summary.tiles.append(self.download_tile(tile_id))
+        return run_summary
 
     def validate_download(self, file_path: Path) -> None:
         """
