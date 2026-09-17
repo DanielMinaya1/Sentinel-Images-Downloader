@@ -1,13 +1,13 @@
 from downloader.downloaders.base_downloader import SentinelDownloader
 from downloader.config.templates import S1_QUERY
 from downloader.models import (
-    Sentinel1DownloadStatus, 
-    Sentinel1Response, 
+    Sentinel1DownloadStatus,
+    Sentinel1Response,
     SentinelProduct,
 )
-from downloader.utils.io import load_json, resolve_config_path
+from downloader.storage.repositories import FootprintRepository
 from pathlib import Path
-from typing import List
+from typing import List, Union
 import rasterio
 import logging
 
@@ -17,35 +17,35 @@ class Sentinel1(SentinelDownloader):
     response_class = Sentinel1Response
 
     def __init__(
-        self, 
-        username: str, 
-        password: str, 
-        footprints_path: str, 
+        self,
+        username: str,
+        password: str,
+        db_path: Union[str, Path],
         orbit_direction: str,
-        product_type: str, 
-        polarization_mode: List[str], 
-        initial_date: str, 
-        last_date: str, 
+        product_type: str,
+        polarization_mode: List[str],
+        initial_date: str,
+        last_date: str,
         output_dir: str,
         max_retries: int,
-    ):   
+    ):
         """
         Args:
-            footprints_path (str): Path to a JSON file containing 
-                                   AOI footprints.
-            orbit_direction (str): Orbit direction (can be 
+            db_path (str): Path to the SQLite database containing the
+                           `s1_footprints` table of AOI footprints.
+            orbit_direction (str): Orbit direction (can be
                                    "ASCENDING" or "DESCENDING").
-            product_type (str): Sentinel-1 product type 
+            product_type (str): Sentinel-1 product type
                                 (e.g., "GRDH", "SLC").
-            polarization_mode (list[str]): Polarization modes 
+            polarization_mode (list[str]): Polarization modes
                                            (e.g., ["VV", "VH"]).
-        """   
+        """
         super().__init__(
-            username=username, 
-            password=password, 
-            initial_date=initial_date, 
-            last_date=last_date, 
-            output_dir=output_dir, 
+            username=username,
+            password=password,
+            initial_date=initial_date,
+            last_date=last_date,
+            output_dir=output_dir,
             max_retries=max_retries,
         )
         self.data_collection = 'SENTINEL-1'
@@ -54,8 +54,8 @@ class Sentinel1(SentinelDownloader):
         self.product_type = product_type
         self.polarization_mode = polarization_mode
 
-        self.footprints_path = resolve_config_path(footprints_path)
-        self.footprints = load_json(self.footprints_path)
+        self.footprint_repository = FootprintRepository(db_path)
+        self.footprints = self.footprint_repository.all()
 
     def __repr__(self) -> str:
         """
