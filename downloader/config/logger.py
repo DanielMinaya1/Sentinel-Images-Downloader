@@ -1,4 +1,4 @@
-from sentinel_images_downloader.config.path import LOGS_DIR
+from downloader.config.path import LOGS_DIR
 import pathlib
 import logging
 

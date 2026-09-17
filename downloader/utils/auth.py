@@ -1,4 +1,4 @@
-from sentinel_images_downloader.config.endpoints import LOGIN_URL
+from downloader.config.endpoints import LOGIN_URL
 import requests
 import logging
 
