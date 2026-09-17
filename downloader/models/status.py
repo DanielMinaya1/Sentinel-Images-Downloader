@@ -77,7 +77,7 @@ class Sentinel2DownloadStatus(SentinelDownloadStatus):
 
 @dataclass
 class TileDownloadSummary:
-    """Outcome of downloading every product found for one tile, 
+    """Outcome of downloading every product found for one tile,
     across all date ranges."""
 
     tile_id: str
@@ -94,3 +94,22 @@ class TileDownloadSummary:
     @property
     def skipped(self) -> int:
         return sum(p.skipped for p in self.products)
+
+
+@dataclass
+class RunSummary:
+    """Outcome of a full `download()` run, across every tile in the config."""
+
+    tiles: List[TileDownloadSummary] = field(default_factory=list)
+
+    @property
+    def succeeded(self) -> int:
+        return sum(t.succeeded for t in self.tiles)
+
+    @property
+    def failed(self) -> int:
+        return sum(t.failed for t in self.tiles)
+
+    @property
+    def skipped(self) -> int:
+        return sum(t.skipped for t in self.tiles)
