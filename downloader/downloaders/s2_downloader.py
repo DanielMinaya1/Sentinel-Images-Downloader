@@ -1,5 +1,10 @@
-from downloader.downloaders.base_downloader import SentinelDownloader
+import logging
+from pathlib import Path
+
+import rasterio
+
 from downloader.config.templates import S2_QUERY, S2_QUERY_NO_ORBIT
+from downloader.downloaders.base_downloader import SentinelDownloader
 from downloader.models import (
     RunSummary,
     Sentinel2DownloadStatus,
@@ -7,10 +12,6 @@ from downloader.models import (
     SentinelProduct,
 )
 from downloader.storage.repositories import OrbitRepository
-from pathlib import Path
-from typing import List, Union
-import rasterio
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -21,12 +22,12 @@ class Sentinel2(SentinelDownloader):
         self,
         username: str,
         password: str,
-        tile_ids: List[str],
+        tile_ids: list[str],
         product_level: str,
-        db_path: Union[str, Path],
+        db_path: str | Path,
         initial_date: str,
         last_date: str,
-        band_selection: List[str],
+        band_selection: list[str],
         output_dir: str,
         max_retries: int,
     ):
@@ -130,7 +131,7 @@ class Sentinel2(SentinelDownloader):
                 product_level=self.product_level,
             )
 
-    def filter_images(self, files_list: List[str]) -> List[str]:
+    def filter_images(self, files_list: list[str]) -> list[str]:
         """
         Filters image files based on specific criteria.
 
@@ -189,12 +190,12 @@ class Sentinel2(SentinelDownloader):
             return
         try:
             with rasterio.open(file_path) as src:
-                src.meta
+                _ = src.meta
 
         except Exception as e:
             message = f"Invalid JP2 file: {e}"
             logger.error(message, exc_info=True)
-            raise ValueError(message)
+            raise ValueError(message) from e
 
     def _create_status(
         self, 

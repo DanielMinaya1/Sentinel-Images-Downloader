@@ -1,5 +1,6 @@
+from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterator, List
+from typing import Any
 
 from downloader.models.product import SentinelProduct
 
@@ -9,10 +10,10 @@ class SentinelResponse:
     """Typed wrapper around a Copernicus OData 
     `{"value": [...]}` catalogue response."""
 
-    products: List[SentinelProduct] = field(default_factory=list)
+    products: list[SentinelProduct] = field(default_factory=list)
 
     @classmethod
-    def from_json(cls, data: Dict[str, Any]) -> "SentinelResponse":
+    def from_json(cls, data: dict[str, Any]) -> "SentinelResponse":
         products = [
             SentinelProduct.from_json(item) 
             for item in data.get("value", [])

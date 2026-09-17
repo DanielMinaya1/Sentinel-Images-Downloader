@@ -1,6 +1,8 @@
-from downloader.config.path import LOGS_DIR
-import pathlib
 import logging
+import pathlib
+
+from downloader.config.path import LOGS_DIR
+
 
 def setup_logger(file_name: str | pathlib.Path) -> logging.Logger:
     logger = logging.getLogger()

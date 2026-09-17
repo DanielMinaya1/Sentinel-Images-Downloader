@@ -1,8 +1,8 @@
-from collections import defaultdict
-from pathlib import Path
-import platform
 import json
 import logging
+import platform
+from collections import defaultdict
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 

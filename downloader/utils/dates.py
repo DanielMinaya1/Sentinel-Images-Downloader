@@ -1,13 +1,12 @@
-from datetime import datetime, timedelta
-from typing import List, Tuple
 import logging
+from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
 def process_dates(
     initial_date: str, 
     last_date: str,
-) -> List[Tuple[str, str]]:
+) -> list[tuple[str, str]]:
     """
     Generates a list of monthly time ranges between two dates.
 

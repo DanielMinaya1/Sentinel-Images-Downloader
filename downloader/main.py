@@ -7,14 +7,15 @@ the full configured download. See `downloader.api` for the equivalent
 programmatic (importable) interface.
 """
 
+import argparse
+from datetime import datetime
+
 from downloader.api import SATELLITE_DOWNLOADERS, build_downloader
+from downloader.config.logger import setup_logger
+from downloader.config.path import LOGS_DIR
 from downloader.reporting import format_run_report, format_tile_report
 from downloader.utils.io import load_json, resolve_config_path
-from downloader.config.path import LOGS_DIR
-from datetime import datetime
-import argparse
 
-from downloader.config.logger import setup_logger
 today = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
 log_path = LOGS_DIR / f"{today}.log"
 logger = setup_logger(file_name=log_path)

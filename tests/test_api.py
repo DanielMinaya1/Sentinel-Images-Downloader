@@ -6,7 +6,6 @@ from downloader.api import build_downloader, download_tile
 from downloader.downloaders.s2_downloader import Sentinel2
 from downloader.models import Sentinel2Config, TileDownloadSummary
 
-
 BASE_S2_CONFIG = Sentinel2Config(
     initial_date="2018-01-01",
     last_date="2018-01-11",

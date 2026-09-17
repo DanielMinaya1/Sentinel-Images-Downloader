@@ -1,5 +1,10 @@
-from downloader.downloaders.base_downloader import SentinelDownloader
+import logging
+from pathlib import Path
+
+import rasterio
+
 from downloader.config.templates import S1_QUERY
+from downloader.downloaders.base_downloader import SentinelDownloader
 from downloader.models import (
     RunSummary,
     Sentinel1DownloadStatus,
@@ -7,10 +12,6 @@ from downloader.models import (
     SentinelProduct,
 )
 from downloader.storage.repositories import FootprintRepository
-from pathlib import Path
-from typing import List, Union
-import rasterio
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -21,10 +22,10 @@ class Sentinel1(SentinelDownloader):
         self,
         username: str,
         password: str,
-        db_path: Union[str, Path],
+        db_path: str | Path,
         orbit_direction: str,
         product_type: str,
-        polarization_mode: List[str],
+        polarization_mode: list[str],
         initial_date: str,
         last_date: str,
         output_dir: str,
@@ -123,7 +124,7 @@ class Sentinel1(SentinelDownloader):
             product_type=self.product_type,
         )
 
-    def filter_images(self, files_list: List[str]) -> List[str]:
+    def filter_images(self, files_list: list[str]) -> list[str]:
         """
         Filters image files based on specific criteria.
 
@@ -183,11 +184,11 @@ class Sentinel1(SentinelDownloader):
             return
         try:
             with rasterio.open(file_path) as src:
-                src.meta
+                _ = src.meta
         except Exception as e:
             message = f"Invalid TIFF file: {e}"
             logger.error(message)
-            raise ValueError(message)
+            raise ValueError(message) from e
 
     def _create_status(
         self, 

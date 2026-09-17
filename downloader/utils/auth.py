@@ -1,6 +1,8 @@
-from downloader.config.endpoints import LOGIN_URL
-import requests
 import logging
+
+import requests
+
+from downloader.config.endpoints import LOGIN_URL
 
 logger = logging.getLogger(__name__)
 

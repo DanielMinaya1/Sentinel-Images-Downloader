@@ -2,7 +2,6 @@ import pytest
 
 from downloader.models import Sentinel1Config, Sentinel2Config
 
-
 S1_DATA = {
     "initial_date": "2018-01-01",
     "last_date": "2018-01-31",

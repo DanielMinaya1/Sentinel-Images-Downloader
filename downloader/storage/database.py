@@ -1,6 +1,5 @@
 import sqlite3
 from pathlib import Path
-from typing import Union
 
 from downloader.config.path import PROJECT_DIR
 
@@ -17,13 +16,13 @@ CREATE TABLE IF NOT EXISTS s2_orbits (
 """
 
 
-def resolve_db_path(db_path: Union[str, Path]) -> Path:
+def resolve_db_path(db_path: str | Path) -> Path:
     """Resolves a (possibly relative) db path against the project root."""
     path = Path(db_path)
     return path if path.is_absolute() else PROJECT_DIR / path
 
 
-def get_connection(db_path: Union[str, Path]) -> sqlite3.Connection:
+def get_connection(db_path: str | Path) -> sqlite3.Connection:
     """
     Opens a SQLite connection to `db_path`, creating the parent directory
     and the reference-data schema if they don't already exist.

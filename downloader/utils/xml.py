@@ -1,5 +1,5 @@
-from xml.etree import cElementTree as ElementTree
 import logging
+from xml.etree import ElementTree as ElementTree
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +60,7 @@ class XmlDictConfig(dict):
             self.update(dict(parent_element.items()))
         for element in parent_element:
             if element:
+                aDict: dict
                 if len(element) == 1 or element[0].tag != element[1].tag:
                     aDict = XmlDictConfig(element)
                 else:

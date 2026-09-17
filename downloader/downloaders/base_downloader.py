@@ -1,3 +1,11 @@
+import logging
+import time
+from abc import ABC, abstractmethod
+from pathlib import Path
+
+import requests
+from tqdm import tqdm
+
 from downloader.config.endpoints import DATA_URL, DOWNLOAD_URL
 from downloader.models import (
     DownloadStatus,
@@ -8,17 +16,10 @@ from downloader.models import (
     SentinelResponse,
     TileDownloadSummary,
 )
-from downloader.utils.io import download_file, process_path
 from downloader.utils.auth import get_keycloak
 from downloader.utils.dates import process_dates
-from downloader.utils.xml import parse_manifest, get_files
-from abc import ABC, abstractmethod
-from pathlib import Path
-from tqdm import tqdm
-from typing import List, Optional
-import requests
-import time
-import logging
+from downloader.utils.io import download_file, process_path
+from downloader.utils.xml import get_files, parse_manifest
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,7 @@ TOKEN_LIFETIME = 3600      # Copernicus tokens last 1 hour
 TOKEN_REFRESH_MARGIN = 300 # Refresh 5 minutes early
 
 class SentinelDownloader(ABC):
-    response_class: type = SentinelResponse
+    response_class: type[SentinelResponse] = SentinelResponse
 
     def __init__(
         self, 
@@ -60,8 +61,8 @@ class SentinelDownloader(ABC):
 
         self.max_retries = max_retries
 
-        self._session: Optional[requests.Session] = None
-        self._token_created_at: Optional[float] = None  # Unix timestamp
+        self._session: requests.Session | None = None
+        self._token_created_at: float | None = None  # Unix timestamp
 
     def _is_token_expired(self) -> bool:
         if self._token_created_at is None:
@@ -125,8 +126,8 @@ class SentinelDownloader(ABC):
     @abstractmethod
     def filter_images(
         self,
-        files_list: List[str],
-    ) -> List[str]:
+        files_list: list[str],
+    ) -> list[str]:
         """Abstract method to be implemented by subclasses."""
         pass
 
@@ -152,7 +153,7 @@ class SentinelDownloader(ABC):
         is checked before the body is saved, so a bad response 
         cannot masquerade as a valid downloaded file.
         """
-        last_error: Optional[str] = None
+        last_error: str | None = None
         for attempt in range(1, self.max_retries + 1):
             try:
                 response = self.session.get(url, allow_redirects=True)

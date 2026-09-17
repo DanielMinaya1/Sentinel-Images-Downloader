@@ -4,12 +4,11 @@ Human-readable reports built from the typed download-status objects
 programmatic caller of `downloader.api`.
 """
 
-from typing import List
 
 from downloader.models import DownloadStatus, RunSummary, TileDownloadSummary
 
 
-def _format_tile_lines(tile: TileDownloadSummary) -> List[str]:
+def _format_tile_lines(tile: TileDownloadSummary) -> list[str]:
     lines = [
         f"Tile {tile.tile_id}: {len(tile.products)} product(s) - "
         f"{tile.succeeded} succeeded, {tile.failed} failed, {tile.skipped} skipped"
