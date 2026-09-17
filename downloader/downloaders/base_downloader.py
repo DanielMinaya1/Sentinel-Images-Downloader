@@ -2,6 +2,7 @@ from downloader.config.endpoints import DATA_URL, DOWNLOAD_URL
 from downloader.models import (
     DownloadStatus,
     FileDownloadResult,
+    RunSummary,
     SentinelDownloadStatus,
     SentinelProduct,
     SentinelResponse,
@@ -305,14 +306,20 @@ class SentinelDownloader(ABC):
                 f"Downloading tile {tile_id} "
                 f"from {initial_date[:10]} to {last_date[:10]}"
             )
-            for product in tqdm(response.products, desc=desc):
+            progress = tqdm(response.products, desc=desc)
+            for product in progress:
                 summary.products.append(self.download_product(product))
+                progress.set_postfix(
+                    succeeded=summary.succeeded,
+                    failed=summary.failed,
+                    skipped=summary.skipped,
+                )
 
             time.sleep(10)
         return summary
 
     @abstractmethod
-    def download(self) -> None:
+    def download(self) -> RunSummary:
         """Abstract method to be implemented by subclasses."""
         pass
 
