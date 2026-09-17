@@ -8,6 +8,7 @@ programmatic (importable) interface.
 """
 
 from downloader.api import SATELLITE_DOWNLOADERS, build_downloader
+from downloader.reporting import format_run_report, format_tile_report
 from downloader.utils.io import load_json, resolve_config_path
 from downloader.config.path import LOGS_DIR
 from datetime import datetime
@@ -58,13 +59,10 @@ def main():
 
     if args.tile:
         summary = downloader.download_tile(args.tile)
-        logger.info(
-            f"Downloading complete: {summary.succeeded} succeeded, "
-            f"{summary.failed} failed, {summary.skipped} skipped."
-        )
+        logger.info("Downloading complete.\n" + format_tile_report(summary))
     else:
-        downloader.download()
-        logger.info("Downloading complete...")
+        run_summary = downloader.download()
+        logger.info("Downloading complete.\n" + format_run_report(run_summary))
 
 if __name__ == "__main__":
     main()
