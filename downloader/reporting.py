@@ -4,7 +4,6 @@ Human-readable reports built from the typed download-status objects
 programmatic caller of `downloader.api`.
 """
 
-
 from downloader.models import DownloadStatus, RunSummary, TileDownloadSummary
 
 
@@ -24,9 +23,7 @@ def _format_tile_lines(tile: TileDownloadSummary) -> list[str]:
             lines.append(f"      error: {product.error}")
         for file_result in product.files:
             if file_result.status == DownloadStatus.FAILED:
-                lines.append(
-                    f"      FAILED: {file_result.file_path} - {file_result.error}"
-                )
+                lines.append(f"      FAILED: {file_result.file_path} - {file_result.error}")
 
     return lines
 

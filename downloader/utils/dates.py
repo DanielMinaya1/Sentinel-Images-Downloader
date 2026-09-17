@@ -3,8 +3,9 @@ from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
+
 def process_dates(
-    initial_date: str, 
+    initial_date: str,
     last_date: str,
 ) -> list[tuple[str, str]]:
     """
@@ -30,11 +31,7 @@ def process_dates(
         end = datetime.strptime(last_date, "%Y-%m-%d")
 
     except ValueError as e:
-        message = (
-            f"Invalid date format. "
-            f"initial_date='{initial_date}', "
-            f"last_date='{last_date}'"
-        )
+        message = f"Invalid date format. initial_date='{initial_date}', last_date='{last_date}'"
         logger.error(message, exc_info=True)
         raise ValueError("Dates must be in 'YYYY-MM-DD' format.") from e
 
@@ -51,15 +48,15 @@ def process_dates(
     current_start = start
 
     while current_start <= end:
-        next_month_start = (
-            current_start.replace(day=28) + timedelta(days=4)
-        ).replace(day=1)
+        next_month_start = (current_start.replace(day=28) + timedelta(days=4)).replace(day=1)
         current_end = min(next_month_start - timedelta(seconds=1), end)
 
-        monthly_ranges.append((
-            current_start.strftime('%Y-%m-%dT00:00:00.000Z'),
-            current_end.strftime('%Y-%m-%dT23:59:59.999Z'),
-        ))
+        monthly_ranges.append(
+            (
+                current_start.strftime("%Y-%m-%dT00:00:00.000Z"),
+                current_end.strftime("%Y-%m-%dT23:59:59.999Z"),
+            )
+        )
 
         current_start = current_end + timedelta(seconds=1)
     return monthly_ranges

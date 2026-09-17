@@ -23,19 +23,20 @@ from downloader.utils.xml import get_files, parse_manifest
 
 logger = logging.getLogger(__name__)
 
-TOKEN_LIFETIME = 3600      # Copernicus tokens last 1 hour
-TOKEN_REFRESH_MARGIN = 300 # Refresh 5 minutes early
+TOKEN_LIFETIME = 3600  # Copernicus tokens last 1 hour
+TOKEN_REFRESH_MARGIN = 300  # Refresh 5 minutes early
+
 
 class SentinelDownloader(ABC):
     response_class: type[SentinelResponse] = SentinelResponse
 
     def __init__(
-        self, 
-        username: str, 
-        password: str, 
-        initial_date: str, 
-        last_date: str, 
-        output_dir: str, 
+        self,
+        username: str,
+        password: str,
+        initial_date: str,
+        last_date: str,
+        output_dir: str,
         max_retries: int,
     ):
         """
@@ -52,7 +53,7 @@ class SentinelDownloader(ABC):
 
         self.data_url = DATA_URL
         self.download_url = DOWNLOAD_URL
-    
+
         self.initial_date = initial_date
         self.last_date = last_date
         self.date_ranges = process_dates(initial_date, last_date)
@@ -77,13 +78,15 @@ class SentinelDownloader(ABC):
             self._session.close()
 
         access_token = get_keycloak(
-            username=self.username, 
+            username=self.username,
             password=self.password,
         )
         self._session = requests.Session()
-        self._session.headers.update({
-            "Authorization": f"Bearer {access_token}",
-        })
+        self._session.headers.update(
+            {
+                "Authorization": f"Bearer {access_token}",
+            }
+        )
         self._token_created_at = time.time()
         logger.info("Session refreshed successfully.")
 
@@ -98,11 +101,11 @@ class SentinelDownloader(ABC):
         """
         Creates and returns the output directory for a given product.
 
-        This method ensures that the directory exists before returning 
+        This method ensures that the directory exists before returning
         its path.
 
         Args:
-            product_name (str): Name of the product for which the output 
+            product_name (str): Name of the product for which the output
             directory is created.
 
         Returns:
@@ -115,9 +118,9 @@ class SentinelDownloader(ABC):
 
     @abstractmethod
     def get_query(
-        self, 
-        tile_id: str, 
-        initial_date: str, 
+        self,
+        tile_id: str,
+        initial_date: str,
         last_date: str,
     ) -> str:
         """Abstract method to be implemented by subclasses."""
@@ -133,24 +136,24 @@ class SentinelDownloader(ABC):
 
     @abstractmethod
     def _create_status(
-        self, 
+        self,
         product: SentinelProduct,
     ) -> SentinelDownloadStatus:
-        """Builds the satellite-specific status object 
+        """Builds the satellite-specific status object
         for a given product."""
         pass
 
     def _download_with_retries(
-        self, 
-        url: str, 
+        self,
+        url: str,
         file_path: Path,
     ) -> FileDownloadResult:
         """
         Downloads a single file, retrying on failure.
 
-        Unlike the previous implementation, a failed HTTP response 
-        (4xx/5xx) is never written to disk: `raise_for_status()` 
-        is checked before the body is saved, so a bad response 
+        Unlike the previous implementation, a failed HTTP response
+        (4xx/5xx) is never written to disk: `raise_for_status()`
+        is checked before the body is saved, so a bad response
         cannot masquerade as a valid downloaded file.
         """
         last_error: str | None = None
@@ -206,16 +209,18 @@ class SentinelDownloader(ABC):
             per-file breakdown of successes, skips, and failures.
 
         Notes:
-            - The function ensures that files are downloaded only if they 
+            - The function ensures that files are downloaded only if they
               are missing.
-            - The folder structure is preserved to match the Sentinel-2 
+            - The folder structure is preserved to match the Sentinel-2
               SAFE format.
         """
-        product_base_url = "/".join([
-            self.download_url,
-            f"Products({product.id})",
-            f"Nodes({product.name})",
-        ])
+        product_base_url = "/".join(
+            [
+                self.download_url,
+                f"Products({product.id})",
+                f"Nodes({product.name})",
+            ]
+        )
         product_path = self.prepare_output(product.name)
         status = self._create_status(product)
 
@@ -223,7 +228,7 @@ class SentinelDownloader(ABC):
         if not manifest_path.is_file():
             manifest_url = f"{product_base_url}/Nodes(manifest.safe)/$value"
             manifest_result = self._download_with_retries(
-                manifest_url, 
+                manifest_url,
                 manifest_path,
             )
             status.files.append(manifest_result)
@@ -249,16 +254,13 @@ class SentinelDownloader(ABC):
                 logger.info(f"{file_path} already exists. Skipping...")
                 status.files.append(
                     FileDownloadResult(
-                        file_path=file_path, 
+                        file_path=file_path,
                         status=DownloadStatus.SKIPPED,
                     ),
                 )
                 continue
 
-            nodes_str = "/".join([
-                f"Nodes({node})" 
-                for node in file.split("/")
-            ])
+            nodes_str = "/".join([f"Nodes({node})" for node in file.split("/")])
             file_url = f"{product_base_url}/{nodes_str}/$value"
             status.files.append(
                 self._download_with_retries(file_url, file_path),
@@ -268,31 +270,31 @@ class SentinelDownloader(ABC):
 
     def download_tile(self, tile_id: str) -> TileDownloadSummary:
         """
-        Downloads all Sentinel products for a given tile across 
+        Downloads all Sentinel products for a given tile across
         multiple date ranges.
 
         This method:
         1. Iterates through predefined date ranges.
-        2. Constructs a query to fetch available Sentinel products for 
+        2. Constructs a query to fetch available Sentinel products for
            the tile.
         3. Sends a request to retrieve product metadata.
-        4. Iterates through each product, initializing a session and 
+        4. Iterates through each product, initializing a session and
            downloading the product files.
-        5. Introduces a delay between requests to prevent excessive 
+        5. Introduces a delay between requests to prevent excessive
            API calls.
 
         Args:
             tile_id (str): The Sentinel tile ID to download data for.
 
         Returns:
-            TileDownloadSummary: The outcome of downloading every product 
+            TileDownloadSummary: The outcome of downloading every product
             found for this tile, across all date ranges.
 
         Notes:
             - Uses `self.get_query()` to construct the API request URL.
-            - Uses `self.download_product()` to handle the actual file 
+            - Uses `self.download_product()` to handle the actual file
               downloads.
-            - Introduces a **10-second delay** (`time.sleep(10)`) between 
+            - Introduces a **10-second delay** (`time.sleep(10)`) between
               iterations to avoid rate limits.
         """
         summary = TileDownloadSummary(tile_id=tile_id)
@@ -303,10 +305,7 @@ class SentinelDownloader(ABC):
             raw_response.raise_for_status()
             response = self.response_class.from_json(raw_response.json())
 
-            desc = (
-                f"Downloading tile {tile_id} "
-                f"from {initial_date[:10]} to {last_date[:10]}"
-            )
+            desc = f"Downloading tile {tile_id} from {initial_date[:10]} to {last_date[:10]}"
             progress = tqdm(response.products, desc=desc)
             for product in progress:
                 summary.products.append(self.download_product(product))

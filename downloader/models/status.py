@@ -21,7 +21,7 @@ class FileDownloadResult:
 
 @dataclass
 class SentinelDownloadStatus:
-    """Outcome of downloading one SAFE product 
+    """Outcome of downloading one SAFE product
     (manifest + its filtered files)."""
 
     product_id: str
@@ -39,27 +39,15 @@ class SentinelDownloadStatus:
 
     @property
     def succeeded(self) -> int:
-        return sum(
-            1 
-            for f in self.files 
-            if f.status == DownloadStatus.SUCCESS
-        )
+        return sum(1 for f in self.files if f.status == DownloadStatus.SUCCESS)
 
     @property
     def failed(self) -> int:
-        return sum(
-            1 
-            for f in self.files 
-            if f.status == DownloadStatus.FAILED
-        )
+        return sum(1 for f in self.files if f.status == DownloadStatus.FAILED)
 
     @property
     def skipped(self) -> int:
-        return sum(
-            1 
-            for f in self.files 
-            if f.status == DownloadStatus.SKIPPED
-        )
+        return sum(1 for f in self.files if f.status == DownloadStatus.SKIPPED)
 
 
 @dataclass

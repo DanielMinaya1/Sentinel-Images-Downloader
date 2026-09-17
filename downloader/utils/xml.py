@@ -6,6 +6,7 @@ logger = logging.getLogger(__name__)
 ## --------------------------------------------------------------------------------------------
 # https://stackoverflow.com/a/78101353
 
+
 class XmlListConfig(list):
     """
     Converts an XML element containing a list of child elements into a Python list.
@@ -23,6 +24,7 @@ class XmlListConfig(list):
         Parsing `root` with `XmlListConfig(root)` will result in:
         ['Value1', 'Value2']
     """
+
     def __init__(self, aList):
         for element in aList:
             if element:
@@ -34,6 +36,7 @@ class XmlListConfig(list):
                 text = element.text.strip()
                 if text:
                     self.append(text)
+
 
 class XmlDictConfig(dict):
     """
@@ -55,6 +58,7 @@ class XmlDictConfig(dict):
             'child2': 'Value2'
         }
     """
+
     def __init__(self, parent_element):
         if parent_element.items():
             self.update(dict(parent_element.items()))
@@ -73,7 +77,9 @@ class XmlDictConfig(dict):
             else:
                 self.update({element.tag: element.text})
 
+
 ## --------------------------------------------------------------------------------------------
+
 
 def parse_manifest(file_path):
     """
@@ -117,6 +123,7 @@ def parse_manifest(file_path):
     root = tree.getroot()
     xmldict = XmlDictConfig(root)
     return xmldict
+
 
 def get_files(xmldict):
     """

@@ -20,6 +20,7 @@ today = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
 log_path = LOGS_DIR / f"{today}.log"
 logger = setup_logger(file_name=log_path)
 
+
 def main():
     """
     Parses command-line arguments, loads the appropriate configuration,
@@ -30,23 +31,29 @@ def main():
     """
     parser = argparse.ArgumentParser(description="Sentinel Satellite Data Downloader")
     parser.add_argument(
-        "-s", "--satellite",
+        "-s",
+        "--satellite",
         help="Name of the satellite to use as data source",
-        required=False, type=str,
+        required=False,
+        type=str,
         default="s2",
-        choices=SATELLITE_DOWNLOADERS.keys()
+        choices=SATELLITE_DOWNLOADERS.keys(),
     )
     parser.add_argument(
-        "-c", "--config_path",
+        "-c",
+        "--config_path",
         help="Name of the config.json to customize the download.",
-        required=False, type=str,
-        default=None
+        required=False,
+        type=str,
+        default=None,
     )
     parser.add_argument(
-        "-t", "--tile",
+        "-t",
+        "--tile",
         help="Download a single tile/footprint id instead of the full config.",
-        required=False, type=str,
-        default=None
+        required=False,
+        type=str,
+        default=None,
     )
 
     args = parser.parse_args()
@@ -64,6 +71,7 @@ def main():
     else:
         run_summary = downloader.download()
         logger.info("Downloading complete.\n" + format_run_report(run_summary))
+
 
 if __name__ == "__main__":
     main()

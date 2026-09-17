@@ -58,8 +58,12 @@ def _resolve_config(
     if isinstance(config, SentinelConfig):
         return config
 
-    config_dict: dict[str, Any] = config if config is not None else load_json(
-        resolve_config_path(f"{satellite}_default_config.json"),
+    config_dict: dict[str, Any] = (
+        config
+        if config is not None
+        else load_json(
+            resolve_config_path(f"{satellite}_default_config.json"),
+        )
     )
     ConfigClass = SATELLITE_CONFIGS[satellite]
     return ConfigClass.from_json(config_dict)
@@ -84,8 +88,8 @@ def build_downloader(
 
     DownloaderClass = SATELLITE_DOWNLOADERS[satellite]
     return DownloaderClass(
-        username=username, 
-        password=password, 
+        username=username,
+        password=password,
         **resolved_config.to_kwargs(),
     )
 

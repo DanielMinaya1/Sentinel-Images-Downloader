@@ -15,6 +15,7 @@ from downloader.storage.repositories import OrbitRepository
 
 logger = logging.getLogger(__name__)
 
+
 class Sentinel2(SentinelDownloader):
     response_class = Sentinel2Response
 
@@ -48,7 +49,7 @@ class Sentinel2(SentinelDownloader):
             output_dir=output_dir,
             max_retries=max_retries,
         )
-        self.data_collection = 'SENTINEL-2'
+        self.data_collection = "SENTINEL-2"
 
         self.tile_ids = tile_ids
         self.product_level = product_level
@@ -59,7 +60,7 @@ class Sentinel2(SentinelDownloader):
 
     def __repr__(self) -> str:
         """
-        Returns a string representation of the Sentinel-2 object, 
+        Returns a string representation of the Sentinel-2 object,
         summarizing its key attributes.
 
         Includes:
@@ -72,12 +73,12 @@ class Sentinel2(SentinelDownloader):
         Example:
             Sentinel-2(
                 tile_ids=[
-                    ('T19HCC', 'R096'), 
+                    ('T19HCC', 'R096'),
                     ('T19KCP', 'R139')
-                ], 
-                bands=['B02', 'B03'], 
-                product_level='L2A', 
-                range_date='2023-01-01 to 2023-12-31', 
+                ],
+                bands=['B02', 'B03'],
+                product_level='L2A',
+                range_date='2023-01-01 to 2023-12-31',
                 output_dir='/data/sentinel2/'
             )
         """
@@ -86,26 +87,26 @@ class Sentinel2(SentinelDownloader):
             f"bands={self.band_selection}",
             f"product_level={self.product_level}",
             f"range_date={self.initial_date} to {self.last_date}",
-            f"output_dir={self.output_dir}"
+            f"output_dir={self.output_dir}",
         ]
         description = ", ".join(attributes)
         return f"Sentinel-2({description})"
 
     def get_query(
-        self, 
+        self,
         tile_id: str,
-        initial_date: str, 
+        initial_date: str,
         last_date: str,
     ) -> str:
         """
-        Constructs an OData query for retrieving Sentinel-2 
+        Constructs an OData query for retrieving Sentinel-2
         products from the Copernicus Data Space API.
 
         Args:
             tile_id (str): The Sentinel-2 tile ID to filter results.
-            initial_date (str): The start date for the query in the 
+            initial_date (str): The start date for the query in the
                                 format 'YYYY-MM-DD'.
-            last_date (str): The end date for the query in the format 
+            last_date (str): The end date for the query in the format
                              'YYYY-MM-DD'.
 
         Returns:
@@ -121,7 +122,7 @@ class Sentinel2(SentinelDownloader):
                 product_level=self.product_level,
                 orbit_number=self.orbits[tile_id],
             )
-        else: 
+        else:
             return S2_QUERY_NO_ORBIT.format(
                 data_url=self.data_url,
                 data_collection=self.data_collection,
@@ -135,8 +136,8 @@ class Sentinel2(SentinelDownloader):
         """
         Filters image files based on specific criteria.
 
-        This method retains only files located in the "IMG_DATA" directory 
-        and further filters them to include only those containing one of 
+        This method retains only files located in the "IMG_DATA" directory
+        and further filters them to include only those containing one of
         the specified bands.
 
         Args:
@@ -147,9 +148,7 @@ class Sentinel2(SentinelDownloader):
         """
         img_data_files = [file for file in files_list if "IMG_DATA" in file]
         return [
-            file 
-            for file in img_data_files 
-            if any(band in file for band in self.band_selection)
+            file for file in img_data_files if any(band in file for band in self.band_selection)
         ]
 
     def download(self) -> RunSummary:
@@ -198,7 +197,7 @@ class Sentinel2(SentinelDownloader):
             raise ValueError(message) from e
 
     def _create_status(
-        self, 
+        self,
         product: SentinelProduct,
     ) -> Sentinel2DownloadStatus:
         return Sentinel2DownloadStatus(

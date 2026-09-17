@@ -20,9 +20,9 @@ def setup_logger(file_name: str | pathlib.Path) -> logging.Logger:
     )
 
     file_handler = logging.FileHandler(
-        filename=LOGS_DIR / file_name, 
+        filename=LOGS_DIR / file_name,
         encoding="utf-8",
-        mode="w", 
+        mode="w",
     )
     file_handler.setFormatter(fmt=formatter)
     logger.addHandler(hdlr=file_handler)

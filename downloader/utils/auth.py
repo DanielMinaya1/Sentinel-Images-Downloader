@@ -6,6 +6,7 @@ from downloader.config.endpoints import LOGIN_URL
 
 logger = logging.getLogger(__name__)
 
+
 def get_keycloak(username, password, client_id="cdse-public"):
     """
     Obtains an access token from Keycloak for authentication.
@@ -19,7 +20,7 @@ def get_keycloak(username, password, client_id="cdse-public"):
         str: The access token received from Keycloak.
 
     Raises:
-        Exception: If the request to Keycloak fails or 
+        Exception: If the request to Keycloak fails or
                    an access token is not found.
     """
     data = {
@@ -49,12 +50,12 @@ def get_keycloak(username, password, client_id="cdse-public"):
         message = f"HTTP error occurred: {http_err} - {response.text}"
         logger.error(message)
         raise Exception(message) from http_err
-    
+
     except requests.exceptions.RequestException as req_err:
         message = f"Request error occurred: {req_err}"
         logger.error(message)
         raise Exception(message) from req_err
-    
+
     except Exception as e:
         message = f"Keycloak token creation failed. Response: {response.text}"
         logger.error(message)

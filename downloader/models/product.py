@@ -4,7 +4,7 @@ from typing import Any
 
 @dataclass(frozen=True)
 class SentinelProduct:
-    """A single product entry from the 
+    """A single product entry from the
     Copernicus OData catalogue response."""
 
     id: str
