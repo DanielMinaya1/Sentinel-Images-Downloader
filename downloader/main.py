@@ -1,39 +1,32 @@
 """
-Module for downloading Sentinel satellite data.
+CLI entry point for downloading Sentinel satellite data.
 
-This script initializes a downloader for Sentinel-1 or Sentinel-2 based on user input
-and loads the corresponding configuration. It retrieves authentication credentials
-from environment variables and starts the download process.
+This is a thin wrapper around `downloader.api`: it parses arguments, loads
+the corresponding configuration, and either downloads a single tile or runs
+the full configured download. See `downloader.api` for the equivalent
+programmatic (importable) interface.
 """
 
-from downloader.downloaders import Sentinel1, Sentinel2
+from downloader.api import SATELLITE_DOWNLOADERS, build_downloader
 from downloader.utils.io import load_json, resolve_config_path
 from downloader.config.path import LOGS_DIR
 from datetime import datetime
-from dotenv import load_dotenv
 import argparse
-import os
 
 from downloader.config.logger import setup_logger
 today = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
 log_path = LOGS_DIR / f"{today}.log"
 logger = setup_logger(file_name=log_path)
 
-# Mapping of satellite names to their respective downloader classes
-SATELLITE_DOWNLOADERS = {
-    "s1": Sentinel1,
-    "s2": Sentinel2
-}
-
 def main():
     """
-    Parses command-line arguments, loads the appropriate configuration, 
+    Parses command-line arguments, loads the appropriate configuration,
     and initializes the downloader.
 
-    Retrieves API credentials from environment variables and starts the 
+    Retrieves API credentials from environment variables and starts the
     data download for the specified satellite.
     """
-    parser = argparse.ArgumentParser(description="Sentinel Satellite Data Downloader")  
+    parser = argparse.ArgumentParser(description="Sentinel Satellite Data Downloader")
     parser.add_argument(
         "-s", "--satellite",
         help="Name of the satellite to use as data source",
@@ -47,24 +40,31 @@ def main():
         required=False, type=str,
         default=None
     )
+    parser.add_argument(
+        "-t", "--tile",
+        help="Download a single tile/footprint id instead of the full config.",
+        required=False, type=str,
+        default=None
+    )
 
     args = parser.parse_args()
-    load_dotenv()
 
     # Determine config file name (use default if not provided)
     config_path = args.config_path or f"{args.satellite}_default_config.json"
     config_path = resolve_config_path(config_path)
     config = load_json(config_path)
 
-    # Retrieve authentication credentials
-    username = os.getenv("COPERNICUS_USERNAME")
-    password = os.getenv("COPERNICUS_PASSWORD")
+    downloader = build_downloader(args.satellite, config)
 
-    # Initialize and start the downloader
-    DownloaderClass = SATELLITE_DOWNLOADERS[args.satellite]
-    downloader = DownloaderClass(username, password, **config)
-    downloader.download()
-    logger.info("Downloading complete...")
+    if args.tile:
+        summary = downloader.download_tile(args.tile)
+        logger.info(
+            f"Downloading complete: {summary.succeeded} succeeded, "
+            f"{summary.failed} failed, {summary.skipped} skipped."
+        )
+    else:
+        downloader.download()
+        logger.info("Downloading complete...")
 
 if __name__ == "__main__":
     main()
