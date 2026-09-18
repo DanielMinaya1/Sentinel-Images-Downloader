@@ -17,6 +17,29 @@ from rasterio.transform import Affine
 from downloader.geometry.aoi import AOI
 
 
+def find_band_file(
+    product_dir: str | Path,
+    band_suffix: str,
+    resolution_dir: str,
+) -> Path:
+    """
+    Finds a band file under a downloaded `.SAFE` product directory
+    (`GRANULE/*/IMG_DATA/<resolution_dir>/*_<band_suffix>.jp2`, the layout
+    this project's own downloader produces), so a caller can pass a product
+    folder instead of knowing SAFE's internal structure.
+    """
+    product_dir = Path(product_dir)
+    matches = sorted(product_dir.glob(f"GRANULE/*/IMG_DATA/{resolution_dir}/*_{band_suffix}.jp2"))
+    if not matches:
+        raise FileNotFoundError(f"No {band_suffix} band found under {product_dir}")
+    return matches[0]
+
+
+def find_tci_band(product_dir: str | Path) -> Path:
+    """Finds the TCI_10m (true color) band under a downloaded `.SAFE` product directory."""
+    return find_band_file(product_dir, "TCI_10m", "R10m")
+
+
 def clip_raster(
     image_path: str | Path,
     aoi: AOI,
