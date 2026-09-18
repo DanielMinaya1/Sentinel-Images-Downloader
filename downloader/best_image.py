@@ -1,15 +1,20 @@
 """
-Finds the least-cloudy Sentinel-2 image for an AOI near a target date.
+Finds the least-cloudy Sentinel-2 image for an AOI, either near a target
+date (`find_best_image`) or anywhere in a date range
+(`find_best_image_in_range`).
 
 Downloads only the cheap SCL band per candidate date to check its AOI cloud
-fraction, nearest-to-target first, and only downloads TCI (producing the
-final saved image) for the winning date - never a full band set for a
-rejected candidate.
+fraction, and only downloads TCI (producing the final saved image) for the
+winning date - never a full band set for a rejected candidate.
 """
 
+import contextlib
+import logging
+import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 import requests
 
@@ -17,10 +22,12 @@ from downloader.api import _resolve_credentials
 from downloader.clouds import CloudStats, compute_cloud_fraction, find_scl_band
 from downloader.downloaders.s2_downloader import Sentinel2
 from downloader.geometry.aoi import AOI
-from downloader.models import Sentinel2Response, SentinelProduct
+from downloader.models import DownloadStatus, Sentinel2Response, SentinelProduct
 from downloader.rasters import find_tci_band
 from downloader.tiles import match_tiles
 from downloader.visualization import create_aoi_image
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_SEARCH_WINDOW_DAYS = 15
 DEFAULT_MAX_CLOUD_FRACTION = 0.2
@@ -33,7 +40,7 @@ class NoCleanImageFoundError(RuntimeError):
 
 @dataclass
 class BestImageResult:
-    """Outcome of `find_best_image`."""
+    """Outcome of `find_best_image` / `find_best_image_in_range`."""
 
     product: SentinelProduct
     tile_id: str
@@ -41,10 +48,15 @@ class BestImageResult:
     image_path: Path | None
 
 
-def _parse_target_date(target_date: str | datetime) -> datetime:
-    if isinstance(target_date, datetime):
-        return target_date
-    return datetime.strptime(target_date, "%Y-%m-%d")
+def _parse_date(value: str | datetime) -> datetime:
+    if isinstance(value, datetime):
+        return value
+    return datetime.strptime(value, "%Y-%m-%d")
+
+
+def _as_aoi(geometry: AOI | dict[str, Any]) -> AOI:
+    """Accepts an `AOI`, or a GeoJSON geometry/Feature dict (assumed EPSG:4326)."""
+    return geometry if isinstance(geometry, AOI) else AOI.from_geojson(geometry)
 
 
 def _fetch_candidates(
@@ -63,6 +75,52 @@ def _fetch_candidates(
 def _product_date(product: SentinelProduct) -> datetime:
     assert product.content_date_start is not None
     return datetime.strptime(product.content_date_start[:10], "%Y-%m-%d")
+
+
+def _evaluate_candidate(
+    downloader: Sentinel2,
+    product: SentinelProduct,
+    aoi: AOI,
+    buffer_meters: float | None,
+) -> CloudStats | None:
+    """
+    Downloads `product`'s SCL band and returns its AOI cloud stats, or None
+    if this candidate can't be used - a failed download, or no valid
+    (non-NO_DATA) coverage over the AOI, which is a real occurrence for
+    partial/edge-of-swath acquisitions. Either way the search moves on to
+    the next candidate instead of failing outright.
+    """
+    status = downloader.download_product(product)
+    if status.status == DownloadStatus.FAILED:
+        logger.warning(f"Skipping {product.name}: SCL download failed")
+        return None
+
+    try:
+        scl_path = find_scl_band(downloader.output_dir / product.name)
+        return compute_cloud_fraction(scl_path, aoi, buffer_meters=buffer_meters)
+    except (FileNotFoundError, ValueError) as e:
+        logger.warning(f"Skipping {product.name}: {e}")
+        return None
+
+
+def _render_winner(
+    downloader: Sentinel2,
+    winner: SentinelProduct,
+    aoi: AOI,
+    image_path: Path,
+    buffer_meters: float | None,
+) -> Path:
+    """Downloads the winner's TCI band (SCL is already local) and saves its AOI image."""
+    downloader.band_selection = ["SCL_20m", "TCI_10m"]
+    status = downloader.download_product(winner)
+    if status.status == DownloadStatus.FAILED:
+        detail = status.error or "; ".join(
+            f"{f.file_path.name}: {f.error}" for f in status.files if f.error
+        )
+        raise RuntimeError(f"Failed to download TCI_10m for {winner.name}: {detail}")
+
+    tci_path = find_tci_band(downloader.output_dir / winner.name)
+    return create_aoi_image(tci_path, aoi, image_path, buffer_meters=buffer_meters)
 
 
 def find_best_image(
@@ -86,9 +144,10 @@ def find_best_image(
 
     Raises `ValueError` if no tile intersects `aoi` or no products exist in
     the window at all, or `NoCleanImageFoundError` if products exist but
-    none meet the cloud threshold.
+    none meet the cloud threshold. See `find_best_image_in_range` for a
+    date-range version that returns None instead of raising.
     """
-    target = _parse_target_date(target_date)
+    target = _parse_date(target_date)
 
     matches = match_tiles(aoi, db_path=db_path)
     if not matches:
@@ -125,17 +184,8 @@ def find_best_image(
     winner: SentinelProduct | None = None
     winner_stats: CloudStats | None = None
     for product in candidates:
-        status = downloader.download_product(product)
-        if status.error:
-            continue
-
-        scl_path = find_scl_band(downloader.output_dir / product.name)
-        try:
-            stats = compute_cloud_fraction(scl_path, aoi, buffer_meters=buffer_meters)
-        except ValueError:
-            # e.g. this product has no valid (non-NO_DATA) coverage over the
-            # AOI at all - a real occurrence for partial/edge-of-swath
-            # acquisitions. Skip it like a failed download, try the next.
+        stats = _evaluate_candidate(downloader, product, aoi, buffer_meters)
+        if stats is None:
             continue
         checked.append((product, stats))
 
@@ -156,17 +206,123 @@ def find_best_image(
             f"best was {best_product.name} at {best_stats.cloud_fraction:.0%})"
         )
 
-    downloader.band_selection = ["SCL_20m", "TCI_10m"]
-    downloader.download_product(winner)
-
-    product_dir = downloader.output_dir / winner.name
-    tci_path = find_tci_band(product_dir)
-    image_path = create_aoi_image(
-        tci_path,
+    image_path = _render_winner(
+        downloader,
+        winner,
         aoi,
         Path(output_dir) / f"{winner.name}.jpg",
-        buffer_meters=buffer_meters,
+        buffer_meters,
     )
+
+    return BestImageResult(
+        product=winner,
+        tile_id=tile_id,
+        cloud_stats=winner_stats,
+        image_path=image_path,
+    )
+
+
+def find_best_image_in_range(
+    geometry: AOI | dict[str, Any],
+    start_date: str | datetime,
+    end_date: str | datetime,
+    output_dir: str | Path,
+    *,
+    username: str | None = None,
+    password: str | None = None,
+    max_cloud_fraction: float = 0.0,
+    buffer_meters: float | None = None,
+    download_dir: str | Path | None = None,
+    db_path: str | Path = "data/sentinel.db",
+    max_retries: int = 3,
+) -> BestImageResult | None:
+    """
+    Finds the clearest Sentinel-2 image over `geometry` anywhere between
+    `start_date` and `end_date` (inclusive) and saves a cropped image of it,
+    with the geometry's boundary drawn on top, to `output_dir` as a JPG.
+
+    "Clearest" is the lowest AOI-scoped cloud fraction across every usable
+    product in the range (ties go to the most recent); the search stops
+    early on a perfectly clear (0%) one since nothing can beat it. The
+    winner must be at or under `max_cloud_fraction` - 0.0 by default, i.e.
+    no clouds at all over the geometry - otherwise this returns None, as it
+    also does when the range has no usable products at all.
+
+    Args:
+        geometry: An `AOI`, or a GeoJSON geometry/Feature dict (EPSG:4326).
+        start_date, end_date: "YYYY-MM-DD" strings or datetimes, inclusive.
+        output_dir: Where the final JPG is saved.
+        download_dir: Where raw Sentinel-2 product data is downloaded. By
+            default a temporary directory that's deleted afterwards, so
+            only the JPG is left behind; pass a path to keep the raw data
+            (and reuse it across calls).
+        buffer_meters: Required for a point/line geometry (no area of its
+            own); optional padding for a polygon.
+
+    Raises `ValueError` for an invalid range or a geometry no Sentinel-2
+    tile intersects.
+    """
+    aoi = _as_aoi(geometry)
+    start, end = _parse_date(start_date), _parse_date(end_date)
+    if start > end:
+        raise ValueError(
+            f"start_date ({start.date()}) must be on or before end_date ({end.date()})"
+        )
+
+    matches = match_tiles(aoi, db_path=db_path)
+    if not matches:
+        raise ValueError("No Sentinel-2 tile intersects this geometry")
+    tile_id = matches[0].tile_id
+
+    username, password = _resolve_credentials(username, password)
+
+    with contextlib.ExitStack() as stack:
+        if download_dir is None:
+            work_dir = Path(stack.enter_context(tempfile.TemporaryDirectory()))
+        else:
+            work_dir = Path(download_dir)
+
+        downloader = Sentinel2(
+            username=username,
+            password=password,
+            tile_ids=[tile_id],
+            product_level="L2A",
+            db_path=db_path,
+            initial_date=start.strftime("%Y-%m-%d"),
+            last_date=end.strftime("%Y-%m-%d"),
+            band_selection=["SCL_20m"],
+            output_dir=str(work_dir),
+            max_retries=max_retries,
+        )
+
+        candidates = _fetch_candidates(downloader, tile_id)
+        logger.info(f"Found {len(candidates)} candidate product(s) for tile {tile_id}")
+        # Most recent first, so a tie on cloud fraction goes to the newer one.
+        candidates.sort(key=_product_date, reverse=True)
+
+        best: tuple[SentinelProduct, CloudStats] | None = None
+        for product in candidates:
+            stats = _evaluate_candidate(downloader, product, aoi, buffer_meters)
+            if stats is None:
+                continue
+            logger.info(f"{product.name}: {stats.cloud_fraction:.1%} cloud over the geometry")
+
+            if best is None or stats.cloud_fraction < best[1].cloud_fraction:
+                best = (product, stats)
+            if stats.cloud_fraction == 0.0:
+                break
+
+        if best is None or best[1].cloud_fraction > max_cloud_fraction:
+            return None
+
+        winner, winner_stats = best
+        image_path = _render_winner(
+            downloader,
+            winner,
+            aoi,
+            Path(output_dir) / f"{winner.name}.jpg",
+            buffer_meters,
+        )
 
     return BestImageResult(
         product=winner,
