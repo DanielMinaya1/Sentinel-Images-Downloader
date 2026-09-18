@@ -40,7 +40,10 @@ def _overlap_fraction(
     return 1.0 if not intersection.is_empty else 0.0
 
 
-def match_tiles(aoi: AOI, db_path: str | Path = DEFAULT_DB_PATH) -> list[TileMatch]:
+def match_tiles(
+    aoi: AOI,
+    db_path: str | Path = DEFAULT_DB_PATH,
+) -> list[TileMatch]:
     """
     Returns every Sentinel-2 tile intersecting `aoi`, sorted best-first
     (highest overlap first; empty list if none intersect).
@@ -49,12 +52,18 @@ def match_tiles(aoi: AOI, db_path: str | Path = DEFAULT_DB_PATH) -> list[TileMat
     Copernicus catalogue on a cache miss, caching whatever it discovers
     for next time.
     """
+    # Footprints (cached and freshly discovered) are always WGS84. Compare
+    # against the AOI's geometry reprojected to match, rather than its raw
+    # coordinates - otherwise a non-WGS84 AOI (e.g. from PostGIS in a
+    # projected CRS) would silently miss real cache hits.
+    aoi_wgs84 = aoi.geometry if aoi.crs == WGS84 else reproject(aoi.geometry, aoi.crs, WGS84)
+
     repository = TileFootprintRepository(db_path)
     try:
         candidates = {
             tile_id: footprint
             for tile_id, footprint in repository.all().items()
-            if footprint.intersects(aoi.geometry)
+            if footprint.intersects(aoi_wgs84)
         }
 
         if not candidates:
@@ -64,7 +73,7 @@ def match_tiles(aoi: AOI, db_path: str | Path = DEFAULT_DB_PATH) -> list[TileMat
             candidates = {
                 tile_id: footprint
                 for tile_id, footprint in discovered.items()
-                if footprint.intersects(aoi.geometry)
+                if footprint.intersects(aoi_wgs84)
             }
     finally:
         repository.close()
