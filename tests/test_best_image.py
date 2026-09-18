@@ -1,15 +1,17 @@
+from pathlib import Path
+
 import numpy as np
 import pytest
 import rasterio
 import requests
 from pyproj import Transformer
 from rasterio.transform import from_origin
-from shapely.geometry import Polygon
+from shapely.geometry import Polygon, box
 
-from downloader.best_image import NoCleanImageFoundError, find_best_image
+from downloader.best_image import NoCleanImageFoundError, find_best_image, find_best_image_in_range
 from downloader.downloaders.s2_downloader import Sentinel2
 from downloader.geometry import AOI
-from downloader.models import Sentinel2DownloadStatus
+from downloader.models import DownloadStatus, FileDownloadResult, Sentinel2DownloadStatus
 from downloader.storage.repositories import TileFootprintRepository
 
 TILE_ID = "T19HCC"
@@ -27,6 +29,11 @@ RASTER_CRS = "EPSG:32719"
 _ORIGIN_X, _ORIGIN_Y = _UTM_X - 30, _UTM_Y + 30
 SCL_TRANSFORM = from_origin(_ORIGIN_X, _ORIGIN_Y, 20, 20)
 TCI_TRANSFORM = from_origin(_ORIGIN_X, _ORIGIN_Y, 10, 10)
+# A polygon covering all 16 pixel centers of the 4x4 SCL grid, so a product's
+# cloud fraction is simply (cloudy pixels / 16).
+WHOLE_RASTER_AOI = AOI.from_shapely(
+    box(_ORIGIN_X + 1, _ORIGIN_Y - 79, _ORIGIN_X + 79, _ORIGIN_Y - 1), crs="EPSG:32719"
+)
 
 CLEAR_SCL_CLASS = 4
 CLOUD_SCL_CLASS = 9
@@ -50,17 +57,24 @@ def fake_catalogue_response(products_by_offset: dict[int, str]):
     return response
 
 
-def write_band(product_dir, band_suffix, resolution_dir, transform, size, count, fill):
+def cloudy_pixels(count):
+    """A 4x4 SCL grid whose first `count` pixels (row-major) are cloud, the rest clear."""
+    flat = np.full(16, CLEAR_SCL_CLASS, dtype=np.uint8)
+    flat[:count] = CLOUD_SCL_CLASS
+    return flat.reshape(4, 4)
+
+
+def write_band(product_dir, band_suffix, resolution_dir, transform, data):
     path = product_dir / "GRANULE" / "G1" / "IMG_DATA" / resolution_dir / f"x_{band_suffix}.jp2"
     path.parent.mkdir(parents=True, exist_ok=True)
-    data = np.full((count, size, size), fill, dtype=np.uint8)
+    _, height, width = data.shape
     with rasterio.open(
         path,
         "w",
         driver="GTiff",
-        height=size,
-        width=size,
-        count=count,
+        height=height,
+        width=width,
+        count=data.shape[0],
         dtype=np.uint8,
         crs=RASTER_CRS,
         transform=transform,
@@ -68,15 +82,33 @@ def write_band(product_dir, band_suffix, resolution_dir, transform, size, count,
         dst.write(data)
 
 
-def install_fake_download(monkeypatch, cloud_class_by_id, calls):
+def install_fake_download(monkeypatch, scl_by_id, calls, *, failing_ids=(), work_dirs=None):
+    """
+    Fakes `Sentinel2.download_product`: writes a synthetic SCL band (an int
+    fills the whole grid, a 4x4 array is used as-is) and, once TCI is
+    requested, a synthetic TCI band, into the downloader's output dir.
+    """
+
     def fake_download_product(self, product):
         calls.append(product.id)
+        if work_dirs is not None:
+            work_dirs.append(self.output_dir)
+
+        if product.id in failing_ids:
+            failed_file = FileDownloadResult(
+                Path("x_SCL_20m.jp2"), DownloadStatus.FAILED, error="boom"
+            )
+            return Sentinel2DownloadStatus(
+                product_id=product.id, product_name=product.name, files=[failed_file]
+            )
+
         product_dir = self.output_dir / product.name
-        write_band(
-            product_dir, "SCL_20m", "R20m", SCL_TRANSFORM, 4, 1, cloud_class_by_id[product.id]
-        )
+        scl = np.asarray(scl_by_id[product.id])
+        scl = np.full((4, 4), scl, dtype=np.uint8) if scl.ndim == 0 else scl.astype(np.uint8)
+        write_band(product_dir, "SCL_20m", "R20m", SCL_TRANSFORM, scl[None])
         if "TCI_10m" in self.band_selection:
-            write_band(product_dir, "TCI_10m", "R10m", TCI_TRANSFORM, 8, 3, 128)
+            tci = np.full((3, 8, 8), 128, dtype=np.uint8)
+            write_band(product_dir, "TCI_10m", "R10m", TCI_TRANSFORM, tci)
         return Sentinel2DownloadStatus(product_id=product.id, product_name=product.name)
 
     monkeypatch.setattr(Sentinel2, "download_product", fake_download_product)
@@ -227,3 +259,191 @@ class TestFindBestImage:
                 db_path=empty_db,
                 output_dir=tmp_path / "out",
             )
+
+    def test_candidate_whose_scl_download_failed_is_skipped(self, tmp_path, db_path, monkeypatch):
+        # A file-level download failure (retries exhausted) leaves no
+        # status.error, only a FAILED file - it must still be skipped.
+        products = {"flaky": "2023-06-15", "ok": "2023-06-17"}
+        monkeypatch.setattr(
+            "downloader.best_image.requests.get",
+            lambda *a, **k: fake_catalogue_response(products),
+        )
+        calls: list[str] = []
+        install_fake_download(
+            monkeypatch,
+            {"flaky": CLEAR_SCL_CLASS, "ok": CLEAR_SCL_CLASS},
+            calls,
+            failing_ids={"flaky"},
+        )
+
+        result = call_find_best_image(db_path, tmp_path / "out")
+
+        assert result.product.id == "ok"
+
+
+def call_range(db_path, output_dir, geometry=WHOLE_RASTER_AOI, **kwargs):
+    # June 5-25 stays inside one calendar-month chunk of process_dates, for
+    # the same reason as in call_find_best_image above.
+    return find_best_image_in_range(
+        geometry,
+        "2023-06-05",
+        "2023-06-25",
+        output_dir,
+        username="test",
+        password="test",
+        db_path=db_path,
+        **kwargs,
+    )
+
+
+class TestFindBestImageInRange:
+    def patch_catalogue(self, monkeypatch, products):
+        monkeypatch.setattr(
+            "downloader.best_image.requests.get",
+            lambda *a, **k: fake_catalogue_response(products),
+        )
+
+    def test_picks_the_lowest_cloud_candidate_across_the_range(
+        self, tmp_path, db_path, monkeypatch
+    ):
+        self.patch_catalogue(
+            monkeypatch, {"half": "2023-06-08", "quarter": "2023-06-12", "most": "2023-06-20"}
+        )
+        calls: list[str] = []
+        install_fake_download(
+            monkeypatch,
+            {"half": cloudy_pixels(8), "quarter": cloudy_pixels(4), "most": cloudy_pixels(12)},
+            calls,
+        )
+
+        result = call_range(db_path, tmp_path / "out", max_cloud_fraction=0.3)
+
+        assert result.product.id == "quarter"
+        assert result.cloud_stats.cloud_fraction == 0.25
+        # Every candidate's SCL was checked (most recent first), then only
+        # the winner was downloaded again for TCI.
+        assert calls == ["most", "quarter", "half", "quarter"]
+
+    def test_stops_at_the_first_perfectly_clear_candidate_most_recent_first(
+        self, tmp_path, db_path, monkeypatch
+    ):
+        self.patch_catalogue(
+            monkeypatch, {"old-clear": "2023-06-08", "new-clear": "2023-06-20", "mid": "2023-06-14"}
+        )
+        calls: list[str] = []
+        install_fake_download(
+            monkeypatch,
+            {"old-clear": CLEAR_SCL_CLASS, "new-clear": CLEAR_SCL_CLASS, "mid": cloudy_pixels(2)},
+            calls,
+        )
+
+        result = call_range(db_path, tmp_path / "out")
+
+        assert result.product.id == "new-clear"
+        assert result.cloud_stats.cloud_fraction == 0.0
+        assert calls == ["new-clear", "new-clear"]
+
+    def test_returns_none_when_the_best_image_is_not_cloud_free_enough(
+        self, tmp_path, db_path, monkeypatch
+    ):
+        self.patch_catalogue(monkeypatch, {"a": "2023-06-10", "b": "2023-06-20"})
+        calls: list[str] = []
+        install_fake_download(monkeypatch, {"a": cloudy_pixels(1), "b": cloudy_pixels(5)}, calls)
+        output_dir = tmp_path / "out"
+
+        result = call_range(db_path, output_dir)  # default: no clouds at all
+
+        assert result is None
+        # No TCI was ever downloaded and nothing was saved.
+        assert calls == ["b", "a"]
+        assert not output_dir.exists()
+
+    def test_max_cloud_fraction_loosens_the_requirement(self, tmp_path, db_path, monkeypatch):
+        self.patch_catalogue(monkeypatch, {"a": "2023-06-10"})
+        install_fake_download(monkeypatch, {"a": cloudy_pixels(1)}, [])
+
+        result = call_range(db_path, tmp_path / "out", max_cloud_fraction=0.1)
+
+        assert result is not None
+        assert result.cloud_stats.cloud_fraction == 1 / 16
+
+    def test_returns_none_when_the_range_has_no_products(self, tmp_path, db_path, monkeypatch):
+        self.patch_catalogue(monkeypatch, {})
+
+        assert call_range(db_path, tmp_path / "out") is None
+
+    def test_returns_none_when_no_candidate_is_usable(self, tmp_path, db_path, monkeypatch):
+        self.patch_catalogue(monkeypatch, {"empty": "2023-06-10", "flaky": "2023-06-12"})
+        install_fake_download(
+            monkeypatch,
+            {"empty": NO_DATA_SCL_CLASS, "flaky": CLEAR_SCL_CLASS},
+            [],
+            failing_ids={"flaky"},
+        )
+
+        assert call_range(db_path, tmp_path / "out") is None
+
+    def test_accepts_a_geojson_dict_geometry(self, tmp_path, db_path, monkeypatch):
+        self.patch_catalogue(monkeypatch, {"clear": "2023-06-10"})
+        install_fake_download(monkeypatch, {"clear": CLEAR_SCL_CLASS}, [])
+        geojson_polygon = {
+            "type": "Polygon",
+            "coordinates": [
+                [
+                    [LON - 0.0003, LAT - 0.0003],
+                    [LON + 0.0003, LAT - 0.0003],
+                    [LON + 0.0003, LAT + 0.0003],
+                    [LON - 0.0003, LAT + 0.0003],
+                    [LON - 0.0003, LAT - 0.0003],
+                ]
+            ],
+        }
+
+        result = call_range(db_path, tmp_path / "out", geometry=geojson_polygon)
+
+        assert result is not None
+        assert result.image_path.exists()
+
+    def test_only_the_image_is_left_in_output_dir_by_default(self, tmp_path, db_path, monkeypatch):
+        self.patch_catalogue(monkeypatch, {"clear": "2023-06-10"})
+        work_dirs: list[Path] = []
+        install_fake_download(monkeypatch, {"clear": CLEAR_SCL_CLASS}, [], work_dirs=work_dirs)
+        output_dir = tmp_path / "out"
+
+        result = call_range(db_path, output_dir)
+
+        assert list(output_dir.iterdir()) == [result.image_path]
+        assert result.image_path.stat().st_size > 0
+        # The raw download went to a temporary directory that's now gone.
+        assert work_dirs and not work_dirs[0].exists()
+
+    def test_download_dir_keeps_the_raw_data(self, tmp_path, db_path, monkeypatch):
+        self.patch_catalogue(monkeypatch, {"clear": "2023-06-10"})
+        install_fake_download(monkeypatch, {"clear": CLEAR_SCL_CLASS}, [])
+        download_dir = tmp_path / "raw"
+
+        result = call_range(db_path, tmp_path / "out", download_dir=download_dir)
+
+        assert (download_dir / result.product.name).is_dir()
+
+    def test_rejects_a_reversed_range(self, tmp_path, db_path):
+        with pytest.raises(ValueError, match="on or before"):
+            find_best_image_in_range(
+                WHOLE_RASTER_AOI,
+                "2023-06-25",
+                "2023-06-05",
+                tmp_path / "out",
+                username="test",
+                password="test",
+                db_path=db_path,
+            )
+
+    def test_raises_when_no_tile_intersects_the_geometry(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(
+            "downloader.tiles.discovery.requests.get",
+            lambda *a, **k: fake_catalogue_response({}),
+        )
+        far_away = AOI.from_geojson({"type": "Point", "coordinates": [0.0, 0.0]})
+
+        with pytest.raises(ValueError, match="No Sentinel-2 tile intersects"):
+            call_range(tmp_path / "empty.db", tmp_path / "out", geometry=far_away)
