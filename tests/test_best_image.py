@@ -303,7 +303,7 @@ class TestFindBestImageInRange:
             lambda *a, **k: fake_catalogue_response(products),
         )
 
-    def test_picks_the_lowest_cloud_candidate_across_the_range(
+    def test_clearest_picks_the_lowest_cloud_candidate_across_the_range(
         self, tmp_path, db_path, monkeypatch
     ):
         self.patch_catalogue(
@@ -316,7 +316,7 @@ class TestFindBestImageInRange:
             calls,
         )
 
-        result = call_range(db_path, tmp_path / "out", max_cloud_fraction=0.3)
+        result = call_range(db_path, tmp_path / "out", max_cloud_fraction=0.3, prefer="clearest")
 
         assert result.product.id == "quarter"
         assert result.cloud_stats.cloud_fraction == 0.25
@@ -342,6 +342,64 @@ class TestFindBestImageInRange:
         assert result.product.id == "new-clear"
         assert result.cloud_stats.cloud_fraction == 0.0
         assert calls == ["new-clear", "new-clear"]
+
+    def test_recent_takes_the_newest_qualifying_date_even_if_an_older_one_is_clearer(
+        self, tmp_path, db_path, monkeypatch
+    ):
+        # newest is 1/16 = 6.25% cloud, older is perfectly clear; with a 10%
+        # tolerance the newest is "clear enough", so it wins without ever
+        # checking the older one.
+        self.patch_catalogue(monkeypatch, {"newest": "2023-06-20", "older": "2023-06-10"})
+        calls: list[str] = []
+        install_fake_download(
+            monkeypatch, {"newest": cloudy_pixels(1), "older": CLEAR_SCL_CLASS}, calls
+        )
+
+        result = call_range(db_path, tmp_path / "out", max_cloud_fraction=0.1)
+
+        assert result.product.id == "newest"
+        assert calls == ["newest", "newest"]
+
+    def test_recent_skips_a_too_cloudy_newest_for_the_next_qualifying_date(
+        self, tmp_path, db_path, monkeypatch
+    ):
+        self.patch_catalogue(
+            monkeypatch, {"cloudy": "2023-06-22", "ok": "2023-06-15", "older-ok": "2023-06-08"}
+        )
+        calls: list[str] = []
+        install_fake_download(
+            monkeypatch,
+            {"cloudy": cloudy_pixels(8), "ok": cloudy_pixels(1), "older-ok": CLEAR_SCL_CLASS},
+            calls,
+        )
+
+        result = call_range(db_path, tmp_path / "out", max_cloud_fraction=0.1)
+
+        assert result.product.id == "ok"
+        assert calls == ["cloudy", "ok", "ok"]
+
+    def test_clearest_prefers_a_clearer_older_date_over_a_newer_qualifying_one(
+        self, tmp_path, db_path, monkeypatch
+    ):
+        self.patch_catalogue(monkeypatch, {"newest": "2023-06-20", "older": "2023-06-10"})
+        install_fake_download(
+            monkeypatch, {"newest": cloudy_pixels(1), "older": CLEAR_SCL_CLASS}, []
+        )
+
+        result = call_range(db_path, tmp_path / "out", max_cloud_fraction=0.1, prefer="clearest")
+
+        assert result.product.id == "older"
+
+    def test_default_tolerates_a_few_percent_of_cloud(self, tmp_path, db_path, monkeypatch):
+        # Default threshold is 5%; 1 cloudy pixel of 16 is 6.25%, just over it.
+        self.patch_catalogue(monkeypatch, {"a": "2023-06-10"})
+        install_fake_download(monkeypatch, {"a": cloudy_pixels(1)}, [])
+
+        assert call_range(db_path, tmp_path / "out") is None
+
+    def test_rejects_an_unknown_prefer_value(self, tmp_path, db_path):
+        with pytest.raises(ValueError, match="prefer must be"):
+            call_range(db_path, tmp_path / "out", prefer="newest")
 
     def test_returns_none_when_the_best_image_is_not_cloud_free_enough(
         self, tmp_path, db_path, monkeypatch
