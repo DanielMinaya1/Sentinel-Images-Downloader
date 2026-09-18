@@ -1,3 +1,7 @@
-from downloader.storage.repositories import FootprintRepository, OrbitRepository
+from downloader.storage.repositories import (
+    FootprintRepository,
+    OrbitRepository,
+    TileFootprintRepository,
+)
 
-__all__ = ["FootprintRepository", "OrbitRepository"]
+__all__ = ["FootprintRepository", "OrbitRepository", "TileFootprintRepository"]

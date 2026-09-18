@@ -13,6 +13,11 @@ CREATE TABLE IF NOT EXISTS s2_orbits (
     tile_id TEXT PRIMARY KEY,
     relative_orbit TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS s2_tile_footprints (
+    tile_id TEXT PRIMARY KEY,
+    footprint TEXT NOT NULL
+);
 """
 
 
