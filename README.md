@@ -121,6 +121,27 @@ print(f"{summary.succeeded} succeeded, {summary.failed} failed, {summary.skipped
 ```
 With no `config` argument, it uses the satellite's default example config (falling back to `COPERNICUS_USERNAME`/`COPERNICUS_PASSWORD` from the environment or a `.env` file for credentials, same as the CLI). Pass `config=` (a dict or a `Sentinel1Config`/`Sentinel2Config`) and/or `username`/`password` to override either.
 
+### Best Image for a Geometry
+To get the clearest Sentinel-2 image over a specific geometry (rather than downloading whole tiles), pass a GeoJSON geometry/Feature (or an `AOI`) and a date range:
+```python
+import json
+from downloader.best_image import find_best_image_in_range
+
+result = find_best_image_in_range(
+    json.load(open("my_area.geojson")),
+    "2025-01-01",
+    "2025-03-31",
+    "output/",
+)
+if result is None:
+    print("No cloud-free image in that range")
+else:
+    print(result.product.name, result.image_path)  # a JPG with the geometry's boundary drawn on top
+```
+It finds the tile automatically, checks each date's cloud cover **over your geometry** (not the tile-wide figure) using only the small SCL band, and downloads the full-resolution TCI band just for the winner. The winner is the lowest-cloud date in the range (most recent on ties), and must be cloud-free by default - pass `max_cloud_fraction=0.1` to tolerate up to 10%; it returns `None` if nothing qualifies. Raw Sentinel-2 data goes to a temporary directory that's deleted afterwards, leaving only the JPG in `output_dir` (pass `download_dir=` to keep it). For a point or line, pass `buffer_meters=` since it has no area of its own.
+
+`find_best_image(aoi, target_date, search_window_days=15)` is the variant that looks around a single target date (nearest first) and raises instead of returning `None`.
+
 ### Example Command
 To download Sentinel-2 images for tile T19KCP from 2019 to 2022, including specific bands, create:
 ```json
