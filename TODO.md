@@ -14,8 +14,8 @@ Next up: geometry-focused features. Given an arbitrary polygon, line, or point (
 ## 3. Time series per band / index
 Given a polygon and a folder of already-downloaded local images, build a time series of band values — or a derived index from multiple bands, like NDVI — over the available dates for that AOI.
 
-## 4. Crop an image to a geometry + buffer
-Crop a single date's image to a polygon, line, or point with a buffer. Start with the TCI_10m layer. This is a building block for both #3 (time series) and #5 (best image).
+## 4. Crop an image to a geometry + buffer — done (tackled before #3, which depends on it)
+`downloader.rasters.crop_image(image_path, aoi, buffer_meters=..., output_path=...)` crops any single- or multi-band raster (starting with TCI_10m) to an AOI's (buffered) polygon, returning a `CroppedImage` (`data`, `transform`, `crs`, `output_path`); writes a GeoTIFF to `output_path` if given, regardless of the input's own format (JP2 write support isn't reliably available across GDAL builds the way read is, GeoTIFF write is universal). Built on a new shared primitive, `clip_raster()`, which `downloader.clouds.compute_cloud_fraction` (#2) was refactored to reuse instead of duplicating the same open/`to_polygon`/`mask` steps. See `downloader/rasters.py` and `tests/test_rasters.py`.
 
 ## 5. Best cloud-free image near a target date (end goal)
 Given a polygon and a target date, return the nearest-date Sentinel-2 TCI image that isn't too cloudy *specifically over that polygon*. Combines #1 (find the tile), #2 (AOI-scoped cloud check across candidate dates), and #4 (crop to the AOI).
