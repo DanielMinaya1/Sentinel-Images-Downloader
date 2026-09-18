@@ -13,6 +13,7 @@ from downloader.downloaders.s2_downloader import Sentinel2
 from downloader.geometry import AOI
 from downloader.models import DownloadStatus, FileDownloadResult, Sentinel2DownloadStatus
 from downloader.storage.repositories import TileFootprintRepository
+from downloader.visualization import ImageOptions
 
 TILE_ID = "T19HCC"
 TILE_FOOTPRINT = Polygon([(-71.3, -33.5), (-70.2, -33.5), (-70.2, -32.5), (-71.3, -32.5)])
@@ -483,6 +484,19 @@ class TestFindBestImageInRange:
         result = call_range(db_path, tmp_path / "out", download_dir=download_dir)
 
         assert (download_dir / result.product.name).is_dir()
+
+    def test_image_options_control_the_saved_image(self, tmp_path, db_path, monkeypatch):
+        self.patch_catalogue(monkeypatch, {"clear": "2023-06-10"})
+        install_fake_download(monkeypatch, {"clear": CLEAR_SCL_CLASS}, [])
+
+        result = call_range(
+            db_path,
+            tmp_path / "out",
+            image_options=ImageOptions(meters=20, extension="png", figsize=(3, 3), dpi=40),
+        )
+
+        assert result.image_path.suffix == ".png"
+        assert result.image_path.stat().st_size > 0
 
     def test_rejects_a_reversed_range(self, tmp_path, db_path):
         with pytest.raises(ValueError, match="on or before"):
