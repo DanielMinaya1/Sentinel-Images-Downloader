@@ -11,7 +11,7 @@ Example:
 import os
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, Literal, TypeAlias
+from typing import Any, Literal
 
 from dotenv import load_dotenv
 
@@ -31,7 +31,7 @@ Satellite = Literal["s1", "s2"]
 SATELLITE_DOWNLOADERS: dict[str, type[SentinelDownloader]] = {"s1": Sentinel1, "s2": Sentinel2}
 SATELLITE_CONFIGS: dict[str, type[SentinelConfig]] = {"s1": Sentinel1Config, "s2": Sentinel2Config}
 
-ConfigLike: TypeAlias = dict[str, Any] | SentinelConfig
+type ConfigLike = dict[str, Any] | SentinelConfig
 
 
 def _resolve_credentials(
