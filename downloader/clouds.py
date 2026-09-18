@@ -8,10 +8,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
-import rasterio
-import rasterio.mask
 
 from downloader.geometry.aoi import AOI
+from downloader.rasters import clip_raster
 
 # Sentinel-2 L2A Scene Classification classes considered "cloud" for
 # filtering purposes: cloud shadows, cloud (medium/high probability), and
@@ -66,9 +65,7 @@ def compute_cloud_fraction(
     check `CloudStats.valid_pixels` if the result covers only one or two
     pixels and you want to be sure it's statistically meaningful.
     """
-    with rasterio.open(scl_path) as dataset:
-        polygon = aoi.to_polygon(buffer_meters=buffer_meters, crs=dataset.crs)
-        clipped, _ = rasterio.mask.mask(dataset, [polygon], crop=True)
+    clipped, _ = clip_raster(scl_path, aoi, buffer_meters=buffer_meters)
 
     values = clipped[0]
     # SCL class 0 means NO_DATA in the classification itself, so treat it as
