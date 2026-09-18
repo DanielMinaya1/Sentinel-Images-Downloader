@@ -17,6 +17,9 @@ Given a polygon and a folder of already-downloaded local images, build a time se
 ## 4. Crop an image to a geometry + buffer — done (tackled before #3, which depends on it)
 `downloader.rasters.crop_image(image_path, aoi, buffer_meters=..., output_path=...)` crops any single- or multi-band raster (starting with TCI_10m) to an AOI's (buffered) polygon, returning a `CroppedImage` (`data`, `transform`, `crs`, `output_path`); writes a GeoTIFF to `output_path` if given, regardless of the input's own format (JP2 write support isn't reliably available across GDAL builds the way read is, GeoTIFF write is universal). Built on a new shared primitive, `clip_raster()`, which `downloader.clouds.compute_cloud_fraction` (#2) was refactored to reuse instead of duplicating the same open/`to_polygon`/`mask` steps. See `downloader/rasters.py` and `tests/test_rasters.py`.
 
+## 4b. Visualize an AOI over an image (JPG export) — done
+`downloader.visualization.create_aoi_image(image_path, aoi, output_path, buffer_meters=...)` crops an image (via `crop_image` from #4), draws the AOI's boundary on top, and saves it as a JPG (or any matplotlib-supported format) — this is the actual visual output the AOI-visualization goal was for. Lower-level pieces (`render_aoi_image`, `save_figure`) are exposed separately for further customization before saving. Adapted from a working matplotlib+geopandas pattern the user had in an old repo. See `downloader/visualization.py` and `tests/test_visualization.py`.
+
 ## 5. Best cloud-free image near a target date (end goal)
 Given a polygon and a target date, return the nearest-date Sentinel-2 TCI image that isn't too cloudy *specifically over that polygon*. Combines #1 (find the tile), #2 (AOI-scoped cloud check across candidate dates), and #4 (crop to the AOI).
 
@@ -30,5 +33,4 @@ Not needed for the AOI visualization goal above, but worth revisiting later.
 
 - **S1 fallback for #5** — SAR is immune to clouds. If no clean-enough S2 image exists near the target date, fall back to the nearest S1 acquisition instead of just relaxing the cloud threshold.
 - **Exportable time series** — CSV/GeoDataFrame/Parquet output from #3, so results plug into pandas/QGIS/etc. instead of being locked into this tool.
-- **Quick visualization helpers** — a one-liner to preview an AOI over a cropped image (matplotlib), useful once #4 exists, especially in notebooks.
 - **STAC support** — Copernicus Dataspace exposes a STAC API; querying through it instead of raw OData would make this interoperable with the broader EO tooling ecosystem (`pystac-client`, `odc-stac`, etc.).
