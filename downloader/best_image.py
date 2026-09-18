@@ -14,7 +14,7 @@ import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import requests
 
@@ -25,12 +25,13 @@ from downloader.geometry.aoi import AOI
 from downloader.models import DownloadStatus, Sentinel2Response, SentinelProduct
 from downloader.rasters import find_tci_band
 from downloader.tiles import match_tiles
-from downloader.visualization import create_aoi_image
+from downloader.visualization import ImageOptions, create_aoi_image
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_SEARCH_WINDOW_DAYS = 15
 DEFAULT_MAX_CLOUD_FRACTION = 0.2
+DEFAULT_RANGE_MAX_CLOUD_FRACTION = 0.05
 
 
 class NoCleanImageFoundError(RuntimeError):
@@ -107,8 +108,8 @@ def _render_winner(
     downloader: Sentinel2,
     winner: SentinelProduct,
     aoi: AOI,
-    image_path: Path,
-    buffer_meters: float | None,
+    output_dir: str | Path,
+    options: ImageOptions,
 ) -> Path:
     """Downloads the winner's TCI band (SCL is already local) and saves its AOI image."""
     downloader.band_selection = ["SCL_20m", "TCI_10m"]
@@ -120,7 +121,8 @@ def _render_winner(
         raise RuntimeError(f"Failed to download TCI_10m for {winner.name}: {detail}")
 
     tci_path = find_tci_band(downloader.output_dir / winner.name)
-    return create_aoi_image(tci_path, aoi, image_path, buffer_meters=buffer_meters)
+    image_path = Path(output_dir) / f"{winner.name}.{options.extension}"
+    return create_aoi_image(tci_path, aoi, image_path, options)
 
 
 def find_best_image(
@@ -132,6 +134,7 @@ def find_best_image(
     search_window_days: int = DEFAULT_SEARCH_WINDOW_DAYS,
     max_cloud_fraction: float = DEFAULT_MAX_CLOUD_FRACTION,
     buffer_meters: float | None = None,
+    image_options: ImageOptions | None = None,
     output_dir: str | Path = "Sentinel-2",
     db_path: str | Path = "data/sentinel.db",
     max_retries: int = 3,
@@ -140,7 +143,8 @@ def find_best_image(
     Finds the Sentinel-2 product nearest to `target_date` whose AOI-scoped
     cloud fraction is at or under `max_cloud_fraction`, within
     `search_window_days` on either side, and saves a cropped + boundary
-    image of it (TCI_10m) to `output_dir`.
+    image of it (TCI_10m) to `output_dir`. `buffer_meters` only affects the
+    cloud check (needed for a point/line); `image_options` controls the image.
 
     Raises `ValueError` if no tile intersects `aoi` or no products exist in
     the window at all, or `NoCleanImageFoundError` if products exist but
@@ -207,11 +211,7 @@ def find_best_image(
         )
 
     image_path = _render_winner(
-        downloader,
-        winner,
-        aoi,
-        Path(output_dir) / f"{winner.name}.jpg",
-        buffer_meters,
+        downloader, winner, aoi, output_dir, image_options or ImageOptions()
     )
 
     return BestImageResult(
@@ -230,23 +230,31 @@ def find_best_image_in_range(
     *,
     username: str | None = None,
     password: str | None = None,
-    max_cloud_fraction: float = 0.0,
+    max_cloud_fraction: float = DEFAULT_RANGE_MAX_CLOUD_FRACTION,
+    prefer: Literal["recent", "clearest"] = "recent",
     buffer_meters: float | None = None,
+    image_options: ImageOptions | None = None,
     download_dir: str | Path | None = None,
     db_path: str | Path = "data/sentinel.db",
     max_retries: int = 3,
 ) -> BestImageResult | None:
     """
-    Finds the clearest Sentinel-2 image over `geometry` anywhere between
-    `start_date` and `end_date` (inclusive) and saves a cropped image of it,
-    with the geometry's boundary drawn on top, to `output_dir` as a JPG.
+    Finds a Sentinel-2 image over `geometry` between `start_date` and
+    `end_date` (inclusive) and saves a cropped image of it, with the
+    geometry's boundary drawn on top, to `output_dir` as a JPG.
 
-    "Clearest" is the lowest AOI-scoped cloud fraction across every usable
-    product in the range (ties go to the most recent); the search stops
-    early on a perfectly clear (0%) one since nothing can beat it. The
-    winner must be at or under `max_cloud_fraction` - 0.0 by default, i.e.
-    no clouds at all over the geometry - otherwise this returns None, as it
-    also does when the range has no usable products at all.
+    A date qualifies if its AOI-scoped cloud fraction is at or under
+    `max_cloud_fraction` (5% by default; 0.0 means no clouds at all). Which
+    qualifying date wins depends on `prefer`:
+
+    - "recent" (default): the most recent qualifying date. Searches
+      newest-first and stops at the first one that qualifies, so it only
+      downloads the small SCL band for as many dates as it takes.
+    - "clearest": the lowest cloud fraction across every usable date in the
+      range (ties go to the most recent), stopping early only on a perfectly
+      clear (0%) one since nothing can beat it. Checks more dates.
+
+    Returns None if no date qualifies, or the range has no usable products.
 
     Args:
         geometry: An `AOI`, or a GeoJSON geometry/Feature dict (EPSG:4326).
@@ -256,12 +264,20 @@ def find_best_image_in_range(
             default a temporary directory that's deleted afterwards, so
             only the JPG is left behind; pass a path to keep the raw data
             (and reuse it across calls).
-        buffer_meters: Required for a point/line geometry (no area of its
-            own); optional padding for a polygon.
+        buffer_meters: Area used for the *cloud check* only. Required for a
+            point/line geometry (no area of its own); a polygon is checked
+            as-is unless you pad it here.
+        image_options: How the saved image looks: the `meters` of imagery
+            shown around the geometry, `filled`, boundary style, output
+            format... (see `ImageOptions`). Defaults to a square window with
+            125 m of margin, saved as JPG.
 
     Raises `ValueError` for an invalid range or a geometry no Sentinel-2
     tile intersects.
     """
+    if prefer not in ("recent", "clearest"):
+        raise ValueError(f"prefer must be 'recent' or 'clearest', got {prefer!r}")
+
     aoi = _as_aoi(geometry)
     start, end = _parse_date(start_date), _parse_date(end_date)
     if start > end:
@@ -307,6 +323,12 @@ def find_best_image_in_range(
                 continue
             logger.info(f"{product.name}: {stats.cloud_fraction:.1%} cloud over the geometry")
 
+            if prefer == "recent":
+                if stats.cloud_fraction <= max_cloud_fraction:
+                    best = (product, stats)
+                    break
+                continue
+
             if best is None or stats.cloud_fraction < best[1].cloud_fraction:
                 best = (product, stats)
             if stats.cloud_fraction == 0.0:
@@ -317,11 +339,7 @@ def find_best_image_in_range(
 
         winner, winner_stats = best
         image_path = _render_winner(
-            downloader,
-            winner,
-            aoi,
-            Path(output_dir) / f"{winner.name}.jpg",
-            buffer_meters,
+            downloader, winner, aoi, output_dir, image_options or ImageOptions()
         )
 
     return BestImageResult(

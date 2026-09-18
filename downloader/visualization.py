@@ -1,9 +1,11 @@
 """
 Renders a cropped Sentinel image (see `downloader.rasters`) with its AOI's
 boundary drawn on top, for visual inspection - saving a JPG like this is the
-actual end goal of the geometry-focused TODO items.
+actual end goal of the geometry-focused TODO items. `ImageOptions` controls
+the look (margin `meters`, `filled`, boundary color/width, output format).
 """
 
+from dataclasses import dataclass
 from pathlib import Path
 
 import geopandas as gpd
@@ -13,8 +15,35 @@ from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from rasterio.transform import array_bounds
 
-from downloader.geometry.aoi import AOI
-from downloader.rasters import CroppedImage, crop_image
+from downloader.geometry.aoi import AOI, GeometryKind
+from downloader.geometry.crs import reproject
+from downloader.rasters import CroppedImage, crop_window
+
+
+@dataclass
+class ImageOptions:
+    """How an AOI image looks and is saved.
+
+    meters: Margin of imagery shown around the geometry's bounding box.
+    square: Make the window square (centered on the geometry) before adding `meters`.
+    filled: Real imagery everywhere in the window; False blacks out everything
+        outside a polygon geometry.
+    figsize, edgecolor, linewidth: How the geometry's boundary is drawn.
+    extension: Output format, e.g. "jpg" or "png" (used when the output file name is
+        generated, as in `downloader.best_image`).
+    overwrite: Replace an existing file at the output path.
+    dpi: Output resolution.
+    """
+
+    meters: float = 125
+    square: bool = True
+    filled: bool = True
+    figsize: tuple[float, float] = (10, 10)
+    edgecolor: str = "deepskyblue"
+    linewidth: float = 1.5
+    extension: str = "jpg"
+    overwrite: bool = True
+    dpi: int = 150
 
 
 def _to_display_array(data: np.ndarray) -> np.ndarray:
@@ -29,7 +58,6 @@ def _to_display_array(data: np.ndarray) -> np.ndarray:
 def render_aoi_image(
     cropped: CroppedImage,
     aoi: AOI,
-    buffer_meters: float | None = None,
     *,
     figsize: tuple[float, float] = (10, 10),
     edgecolor: str = "deepskyblue",
@@ -38,8 +66,9 @@ def render_aoi_image(
     title: str | None = None,
 ) -> tuple[Figure, Axes]:
     """
-    Plots `cropped`'s image data with `aoi`'s boundary drawn on top, in the
-    cropped image's own CRS. Works for a 1-band (e.g. SCL, shown with
+    Plots `cropped`'s image data with `aoi`'s own geometry drawn on top (a
+    polygon's boundary, a line, or a point marker - never a buffered version
+    of it), in the cropped image's own CRS. Works for a 1-band (e.g. SCL, shown with
     `cmap`) or 3-band/RGB (e.g. TCI) crop; raises `ValueError` otherwise.
     """
     _, height, width = cropped.data.shape
@@ -49,10 +78,13 @@ def render_aoi_image(
     fig, ax = plt.subplots(figsize=figsize)
     ax.imshow(display_data, extent=(left, right, bottom, top), cmap=cmap)
 
-    boundary = aoi.to_polygon(buffer_meters=buffer_meters, crs=cropped.crs)
-    gpd.GeoSeries([boundary], crs=cropped.crs).boundary.plot(
-        ax=ax, edgecolor=edgecolor, linewidth=linewidth
-    )
+    geometry = gpd.GeoSeries([reproject(aoi.geometry, aoi.crs, cropped.crs)], crs=cropped.crs)
+    if aoi.kind is GeometryKind.POLYGON:
+        geometry.boundary.plot(ax=ax, edgecolor=edgecolor, linewidth=linewidth)
+    elif aoi.kind is GeometryKind.LINE:
+        geometry.plot(ax=ax, color=edgecolor, linewidth=linewidth)
+    else:
+        geometry.plot(ax=ax, color=edgecolor, marker="o", markersize=10 * linewidth**2)
 
     if title:
         ax.set_title(title)
@@ -84,14 +116,29 @@ def create_aoi_image(
     image_path: str | Path,
     aoi: AOI,
     output_path: str | Path,
-    buffer_meters: float | None = None,
-    **render_kwargs,
+    options: ImageOptions | None = None,
+    *,
+    title: str | None = None,
 ) -> Path:
     """
-    End-to-end: crops `image_path` (e.g. a downloaded TCI_10m band) to
-    `aoi`, renders it with the AOI's boundary overlaid, and saves it to
-    `output_path` (e.g. a `.jpg`).
+    End-to-end: crops `image_path` (e.g. a downloaded TCI_10m band) to a
+    window around `aoi` (see `ImageOptions.meters`/`square`/`filled`), draws
+    the AOI's boundary on top, and saves it to `output_path` (e.g. a `.jpg`).
     """
-    cropped = crop_image(image_path, aoi, buffer_meters=buffer_meters)
-    fig, _ = render_aoi_image(cropped, aoi, buffer_meters=buffer_meters, **render_kwargs)
-    return save_figure(fig, output_path)
+    options = options or ImageOptions()
+    cropped = crop_window(
+        image_path,
+        aoi,
+        meters=options.meters,
+        square=options.square,
+        filled=options.filled,
+    )
+    fig, _ = render_aoi_image(
+        cropped,
+        aoi,
+        figsize=options.figsize,
+        edgecolor=options.edgecolor,
+        linewidth=options.linewidth,
+        title=title,
+    )
+    return save_figure(fig, output_path, dpi=options.dpi, overwrite=options.overwrite)

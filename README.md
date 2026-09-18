@@ -138,7 +138,38 @@ if result is None:
 else:
     print(result.product.name, result.image_path)  # a JPG with the geometry's boundary drawn on top
 ```
-It finds the tile automatically, checks each date's cloud cover **over your geometry** (not the tile-wide figure) using only the small SCL band, and downloads the full-resolution TCI band just for the winner. The winner is the lowest-cloud date in the range (most recent on ties), and must be cloud-free by default - pass `max_cloud_fraction=0.1` to tolerate up to 10%; it returns `None` if nothing qualifies. Raw Sentinel-2 data goes to a temporary directory that's deleted afterwards, leaving only the JPG in `output_dir` (pass `download_dir=` to keep it). For a point or line, pass `buffer_meters=` since it has no area of its own.
+It finds the tile automatically, checks each date's cloud cover **over your geometry** (not the tile-wide figure) using only the small SCL band, and downloads the full-resolution TCI band just for the winner. A date qualifies if its cloud fraction is at or under `max_cloud_fraction` (5% by default; `0.0` means no clouds at all). `prefer` decides which qualifying date wins:
+- `prefer="recent"` (default): the most recent qualifying date. Searches newest-first and stops at the first one that qualifies, so it checks as few dates as possible.
+- `prefer="clearest"`: the lowest-cloud date in the range (most recent on ties), even if a newer one would have qualified. Checks more dates.
+
+It returns `None` if nothing qualifies. The cloud check covers the polygon itself, so `buffer_meters=` is only needed for a point or line (which has no area to check).
+
+To control the image itself, pass `image_options`:
+```python
+from downloader.visualization import ImageOptions
+
+find_best_image_in_range(
+    geometry,
+    "2025-01-01",
+    "2025-03-31",
+    "output/",
+    image_options=ImageOptions(
+        meters=75,
+        filled=True,
+        edgecolor="deepskyblue",
+        linewidth=4,
+        figsize=(16, 16),
+        extension="jpg",
+    ),
+)
+```
+- `meters`: how much imagery to show around the geometry's bounding box (default 125).
+- `square`: make that window square, centered on the geometry (default `True`).
+- `filled`: real imagery everywhere in the window (default `True`); `False` blacks out everything outside a polygon.
+- `figsize`, `edgecolor`, `linewidth`, `dpi`: how the geometry's boundary is drawn and the output resolution.
+- `extension`, `overwrite`: output format and whether to replace an existing file.
+
+The boundary drawn is always the geometry itself (a polygon's outline, a line, or a point marker), never a buffered version of it. Raw Sentinel-2 data goes to a temporary directory that's deleted afterwards, leaving only the JPG in `output_dir` (pass `download_dir=` to keep it).
 
 `find_best_image(aoi, target_date, search_window_days=15)` is the variant that looks around a single target date (nearest first) and raises instead of returning `None`.
 
