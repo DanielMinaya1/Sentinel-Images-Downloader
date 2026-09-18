@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 
 from downloader.geometry.aoi import AOI
-from downloader.rasters import clip_raster
+from downloader.rasters import clip_raster, find_band_file
 
 # Sentinel-2 L2A Scene Classification classes considered "cloud" for
 # filtering purposes: cloud shadows, cloud (medium/high probability), and
@@ -32,17 +32,8 @@ class CloudStats:
 
 
 def find_scl_band(product_dir: str | Path) -> Path:
-    """
-    Finds the SCL_20m band under a downloaded `.SAFE` product directory
-    (`GRANULE/*/IMG_DATA/R20m/*_SCL_20m.jp2`, the layout this project's own
-    downloader produces), so a caller can pass a product folder instead of
-    knowing SAFE's internal structure.
-    """
-    product_dir = Path(product_dir)
-    matches = sorted(product_dir.glob("GRANULE/*/IMG_DATA/R20m/*_SCL_20m.jp2"))
-    if not matches:
-        raise FileNotFoundError(f"No SCL_20m band found under {product_dir}")
-    return matches[0]
+    """Finds the SCL_20m band under a downloaded `.SAFE` product directory."""
+    return find_band_file(product_dir, "SCL_20m", "R20m")
 
 
 def compute_cloud_fraction(
