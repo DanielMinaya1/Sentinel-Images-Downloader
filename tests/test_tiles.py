@@ -1,4 +1,5 @@
 import requests
+from pyproj import Transformer
 from shapely.geometry import Point, Polygon, box
 
 from downloader.geometry import AOI
@@ -76,6 +77,29 @@ class TestMatchTiles:
         monkeypatch.setattr("downloader.tiles.discovery.requests.get", fail_if_called)
 
         aoi = AOI.from_geojson({"type": "Point", "coordinates": [-70.8, -33.0]})
+        matches = match_tiles(aoi, db_path=db_path)
+
+        assert [m.tile_id for m in matches] == ["T19HCC"]
+
+    def test_offline_cache_hit_when_aoi_crs_is_not_wgs84(self, tmp_path, monkeypatch):
+        # Cached footprints are always WGS84; the AOI here is a UTM point at
+        # the same real-world location, inside TILE_A_FOOTPRINT's bounds -
+        # the cache check must reproject to compare them correctly instead
+        # of comparing raw coordinates from two different CRSes.
+        db_path = tmp_path / "sentinel.db"
+        TileFootprintRepository(db_path).upsert(
+            "T19HCC", Polygon(TILE_A_FOOTPRINT["coordinates"][0])
+        )
+
+        def fail_if_called(*args, **kwargs):
+            raise AssertionError("should not query the network when the cache already has a hit")
+
+        monkeypatch.setattr("downloader.tiles.discovery.requests.get", fail_if_called)
+
+        transformer = Transformer.from_crs("EPSG:4326", "EPSG:32719", always_xy=True)
+        utm_x, utm_y = transformer.transform(-70.75, -33.0)
+        aoi = AOI.from_shapely(Point(utm_x, utm_y), crs="EPSG:32719")
+
         matches = match_tiles(aoi, db_path=db_path)
 
         assert [m.tile_id for m in matches] == ["T19HCC"]
