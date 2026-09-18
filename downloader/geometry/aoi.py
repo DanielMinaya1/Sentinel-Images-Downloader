@@ -7,7 +7,7 @@ filtering, cropping, time series, and best-image selection all accept an
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, TypeAlias
+from typing import Any
 
 import geopandas as gpd
 import shapely.wkt
@@ -17,7 +17,7 @@ from shapely.geometry.base import BaseGeometry
 
 from downloader.geometry.crs import estimate_metric_crs, reproject
 
-CRSLike: TypeAlias = str | int | CRS
+type CRSLike = str | int | CRS
 
 
 class GeometryKind(Enum):
