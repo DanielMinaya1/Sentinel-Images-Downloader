@@ -28,3 +28,9 @@ S1_QUERY = (
     "not (contains(Name, 'COG')) and "
     "Online eq True&$top=20&$orderby=ContentDate/Start asc"
 )
+
+S2_TILE_DISCOVERY_QUERY = (
+    "{data_url}/Products?$filter=Collection/Name eq 'SENTINEL-2' and "
+    "OData.CSC.Intersects(area=geography'SRID=4326;POLYGON(({bbox_ring}))')"
+    "&$top=20&$orderby=ContentDate/Start desc"
+)
