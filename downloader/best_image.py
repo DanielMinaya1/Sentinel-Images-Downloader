@@ -25,7 +25,7 @@ from downloader.geometry.aoi import AOI
 from downloader.models import DownloadStatus, Sentinel2Response, SentinelProduct
 from downloader.rasters import find_tci_band
 from downloader.tiles import match_tiles
-from downloader.visualization import create_aoi_image
+from downloader.visualization import ImageOptions, create_aoi_image
 
 logger = logging.getLogger(__name__)
 
@@ -108,8 +108,8 @@ def _render_winner(
     downloader: Sentinel2,
     winner: SentinelProduct,
     aoi: AOI,
-    image_path: Path,
-    buffer_meters: float | None,
+    output_dir: str | Path,
+    options: ImageOptions,
 ) -> Path:
     """Downloads the winner's TCI band (SCL is already local) and saves its AOI image."""
     downloader.band_selection = ["SCL_20m", "TCI_10m"]
@@ -121,7 +121,8 @@ def _render_winner(
         raise RuntimeError(f"Failed to download TCI_10m for {winner.name}: {detail}")
 
     tci_path = find_tci_band(downloader.output_dir / winner.name)
-    return create_aoi_image(tci_path, aoi, image_path, buffer_meters=buffer_meters)
+    image_path = Path(output_dir) / f"{winner.name}.{options.extension}"
+    return create_aoi_image(tci_path, aoi, image_path, options)
 
 
 def find_best_image(
@@ -133,6 +134,7 @@ def find_best_image(
     search_window_days: int = DEFAULT_SEARCH_WINDOW_DAYS,
     max_cloud_fraction: float = DEFAULT_MAX_CLOUD_FRACTION,
     buffer_meters: float | None = None,
+    image_options: ImageOptions | None = None,
     output_dir: str | Path = "Sentinel-2",
     db_path: str | Path = "data/sentinel.db",
     max_retries: int = 3,
@@ -141,7 +143,8 @@ def find_best_image(
     Finds the Sentinel-2 product nearest to `target_date` whose AOI-scoped
     cloud fraction is at or under `max_cloud_fraction`, within
     `search_window_days` on either side, and saves a cropped + boundary
-    image of it (TCI_10m) to `output_dir`.
+    image of it (TCI_10m) to `output_dir`. `buffer_meters` only affects the
+    cloud check (needed for a point/line); `image_options` controls the image.
 
     Raises `ValueError` if no tile intersects `aoi` or no products exist in
     the window at all, or `NoCleanImageFoundError` if products exist but
@@ -208,11 +211,7 @@ def find_best_image(
         )
 
     image_path = _render_winner(
-        downloader,
-        winner,
-        aoi,
-        Path(output_dir) / f"{winner.name}.jpg",
-        buffer_meters,
+        downloader, winner, aoi, output_dir, image_options or ImageOptions()
     )
 
     return BestImageResult(
@@ -234,6 +233,7 @@ def find_best_image_in_range(
     max_cloud_fraction: float = DEFAULT_RANGE_MAX_CLOUD_FRACTION,
     prefer: Literal["recent", "clearest"] = "recent",
     buffer_meters: float | None = None,
+    image_options: ImageOptions | None = None,
     download_dir: str | Path | None = None,
     db_path: str | Path = "data/sentinel.db",
     max_retries: int = 3,
@@ -264,8 +264,13 @@ def find_best_image_in_range(
             default a temporary directory that's deleted afterwards, so
             only the JPG is left behind; pass a path to keep the raw data
             (and reuse it across calls).
-        buffer_meters: Required for a point/line geometry (no area of its
-            own); optional padding for a polygon.
+        buffer_meters: Area used for the *cloud check* only. Required for a
+            point/line geometry (no area of its own); a polygon is checked
+            as-is unless you pad it here.
+        image_options: How the saved image looks: the `meters` of imagery
+            shown around the geometry, `filled`, boundary style, output
+            format... (see `ImageOptions`). Defaults to a square window with
+            125 m of margin, saved as JPG.
 
     Raises `ValueError` for an invalid range or a geometry no Sentinel-2
     tile intersects.
@@ -334,11 +339,7 @@ def find_best_image_in_range(
 
         winner, winner_stats = best
         image_path = _render_winner(
-            downloader,
-            winner,
-            aoi,
-            Path(output_dir) / f"{winner.name}.jpg",
-            buffer_meters,
+            downloader, winner, aoi, output_dir, image_options or ImageOptions()
         )
 
     return BestImageResult(
