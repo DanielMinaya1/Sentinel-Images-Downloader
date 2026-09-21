@@ -1,6 +1,10 @@
 # Sentinel Images Downloader
 
-A Python script to download Sentinel-1 and Sentinel-2 images from the Copernicus Browser. Supports specifying footprints or tile IDs, date range, and relevant parameters such as polarization, orbit direction, and bands for retrieval.
+*Sentinel Images Downloader* is a Python toolkit for pulling Sentinel-1 and Sentinel-2 imagery from the Copernicus Data Space ecosystem, built around one core question: what is the clearest recent image of this exact polygon?
+
+Unlike tile-wide cloud filtering, this library measures cloud cover from Sentinel-2 SCL pixels directly under your geometry, so a tile that is 60% cloudy can still return a clean image for your area of interest. Only the SCL band is downloaded per candidate date, true-color imagery is fetched for the winning date alone.
+
+This is a personal open source project, developed and maintained independently. It is used in production pipelines as a third-party library, in the same way you would use any public package.
 
 ## Requirements
 1. Copernicus Data Space Account: Register for a free account on the [Copernicus Data Space Ecosystem](https://dataspace.copernicus.eu/).
