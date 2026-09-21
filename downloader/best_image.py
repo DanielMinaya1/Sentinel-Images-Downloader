@@ -193,7 +193,7 @@ def find_best_image(
             continue
         checked.append((product, stats))
 
-        if stats.cloud_fraction <= max_cloud_fraction:
+        if stats.unusable_fraction <= max_cloud_fraction:
             winner, winner_stats = product, stats
             break
 
@@ -203,11 +203,11 @@ def find_best_image(
                 f"None of the {len(candidates)} candidate product(s) for tile {tile_id} "
                 "could be checked (download failures and/or no valid AOI coverage)"
             )
-        best_product, best_stats = min(checked, key=lambda pair: pair[1].cloud_fraction)
+        best_product, best_stats = min(checked, key=lambda pair: pair[1].unusable_fraction)
         raise NoCleanImageFoundError(
             f"No image within {search_window_days} days of {target.date()} met the "
             f"{max_cloud_fraction:.0%} cloud threshold (checked {len(checked)}; "
-            f"best was {best_product.name} at {best_stats.cloud_fraction:.0%})"
+            f"best was {best_product.name} at {best_stats.unusable_fraction:.0%})"
         )
 
     image_path = _render_winner(
@@ -244,7 +244,9 @@ def find_best_image_in_range(
     geometry's boundary drawn on top, to `output_dir` as a JPG.
 
     A date qualifies if its AOI-scoped cloud fraction is at or under
-    `max_cloud_fraction` (5% by default; 0.0 means no clouds at all). Which
+    `max_cloud_fraction` (5% by default; 0.0 means no clouds at all).
+    NO_DATA pixels (a partial acquisition cutting through the geometry)
+    count against a date the same way clouds do. Which
     qualifying date wins depends on `prefer`:
 
     - "recent" (default): the most recent qualifying date. Searches
@@ -321,20 +323,20 @@ def find_best_image_in_range(
             stats = _evaluate_candidate(downloader, product, aoi, buffer_meters)
             if stats is None:
                 continue
-            logger.info(f"{product.name}: {stats.cloud_fraction:.1%} cloud over the geometry")
+            logger.info(f"{product.name}: {stats.unusable_fraction:.1%} cloud/no-data over the AOI")
 
             if prefer == "recent":
-                if stats.cloud_fraction <= max_cloud_fraction:
+                if stats.unusable_fraction <= max_cloud_fraction:
                     best = (product, stats)
                     break
                 continue
 
-            if best is None or stats.cloud_fraction < best[1].cloud_fraction:
+            if best is None or stats.unusable_fraction < best[1].unusable_fraction:
                 best = (product, stats)
-            if stats.cloud_fraction == 0.0:
+            if stats.unusable_fraction == 0.0:
                 break
 
-        if best is None or best[1].cloud_fraction > max_cloud_fraction:
+        if best is None or best[1].unusable_fraction > max_cloud_fraction:
             return None
 
         winner, winner_stats = best
