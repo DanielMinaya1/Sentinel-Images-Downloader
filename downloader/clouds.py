@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
+from rasterio.features import geometry_mask
 
 from downloader.geometry.aoi import AOI
 from downloader.rasters import clip_raster, find_band_file
@@ -29,6 +30,20 @@ class CloudStats:
     cloud_pixels: int
     valid_pixels: int
     total_pixels: int
+
+    @property
+    def no_data_pixels(self) -> int:
+        return self.total_pixels - self.valid_pixels
+
+    @property
+    def unusable_fraction(self) -> float:
+        """
+        Fraction of the AOI's pixels that are cloud *or* NO_DATA. Unlike
+        `cloud_fraction` (cloud over valid pixels only), this penalises a
+        partial acquisition whose swath cuts through the AOI, which would
+        otherwise look "clear" and produce a cut-off image.
+        """
+        return (self.cloud_pixels + self.no_data_pixels) / self.total_pixels
 
 
 def find_scl_band(product_dir: str | Path) -> Path:
@@ -56,13 +71,20 @@ def compute_cloud_fraction(
     check `CloudStats.valid_pixels` if the result covers only one or two
     pixels and you want to be sure it's statistically meaningful.
     """
-    clipped, _ = clip_raster(scl_path, aoi, buffer_meters=buffer_meters)
+    clipped, profile = clip_raster(scl_path, aoi, buffer_meters=buffer_meters)
 
     values = clipped[0]
+    # The clip fills everything outside the polygon with 0, which is
+    # indistinguishable from NO_DATA, so count only pixels inside the polygon
+    # as part of the AOI.
+    polygon = aoi.to_polygon(buffer_meters=buffer_meters, crs=profile["crs"])
+    inside = geometry_mask(
+        [polygon], out_shape=values.shape, transform=profile["transform"], invert=True
+    )
     # SCL class 0 means NO_DATA in the classification itself, so treat it as
     # invalid regardless of the file's own nodata tag - JP2 doesn't reliably
     # carry one.
-    valid_mask = values != _NO_DATA_SCL_CLASS
+    valid_mask = inside & (values != _NO_DATA_SCL_CLASS)
     valid_pixels = int(valid_mask.sum())
     if valid_pixels == 0:
         raise ValueError("AOI has no valid pixel coverage in this raster")
@@ -74,5 +96,5 @@ def compute_cloud_fraction(
         cloud_fraction=cloud_pixels / valid_pixels,
         cloud_pixels=cloud_pixels,
         valid_pixels=valid_pixels,
-        total_pixels=int(values.size),
+        total_pixels=int(inside.sum()),
     )
