@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "sentinel-images-downloader"
 version = "2026.9.18"
-description = "A Python script to easily download Sentinel-2 satellite imagery from Copernicus Browser by specifying tile IDs, years, and bands."
+description = "Python toolkit for AOI-scoped Sentinel-1/2 imagery retrieval with cloud-aware best-image search"
 authors = ["Daniel Minaya Vargas <dminaya@dim.uchile.cl>"]
 keywords = ["sentinel-2", "downloader", "satellite imagery"]
 packages = [{ include = "downloader" }]
