@@ -10,7 +10,7 @@ packages = [{ include = "downloader" }]
 python = "^3.12"
 requests = "^2.32.3"
 rasterio = "^1.3.10"
-python-dotenv = "^1.0.1"
+python-dotenv = "^1.2.3"
 tqdm = "^4.66.4"
 shapely = "^2.1.2"
 geopandas = "^1.1.4"
