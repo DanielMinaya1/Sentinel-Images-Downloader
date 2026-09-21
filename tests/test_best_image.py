@@ -325,6 +325,24 @@ class TestFindBestImageInRange:
         # the winner was downloaded again for TCI.
         assert calls == ["most", "quarter", "half", "quarter"]
 
+    def test_partial_no_data_coverage_counts_against_a_candidate(
+        self, tmp_path, db_path, monkeypatch
+    ):
+        # Newest date is "clear" only over the few pixels the swath covers
+        # (the rest is NO_DATA), so it must lose to the fully covered one.
+        self.patch_catalogue(monkeypatch, {"partial": "2023-06-20", "full": "2023-06-10"})
+        partial = np.full(16, NO_DATA_SCL_CLASS, dtype=np.uint8)
+        partial[:4] = CLEAR_SCL_CLASS
+        install_fake_download(
+            monkeypatch,
+            {"partial": partial.reshape(4, 4), "full": CLEAR_SCL_CLASS},
+            [],
+        )
+
+        result = call_range(db_path, tmp_path / "out")
+
+        assert result.product.id == "full"
+
     def test_stops_at_the_first_perfectly_clear_candidate_most_recent_first(
         self, tmp_path, db_path, monkeypatch
     ):
